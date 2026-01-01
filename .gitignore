@@ -1,0 +1,18 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# Project specific
+sas_plan
+trace.log
+experiment_results.csv
+*.png
+
+# Mac OS system files
+.DS_Store
