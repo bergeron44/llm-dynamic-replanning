@@ -16,3 +16,8 @@ experiment_results.csv
 
 # Mac OS system files
 .DS_Store
+
+# Build artifacts
+downward/builds/
+downward/*.o
+downward/**/*.o

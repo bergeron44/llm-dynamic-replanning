@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/Users/ronberger/Desktop/replaning/downward/builds/release/cmake_install.cmake",
-		"/Users/ronberger/Desktop/replaning/downward/builds/release/search/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
