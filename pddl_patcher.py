@@ -287,6 +287,22 @@ class PDDLPatcher:
                     # Remove only if it's not a store
                     if metadata.get('type') != 'store':
                         content = re.sub(re.escape(blocked_pred) + r'\s*', '', content)
+            
+            # CRITICAL FIX: Remove (clear loc_X_Y) predicates for obstacles
+            # blocked and clear are mutually exclusive - cannot have both!
+            # When we add (blocked loc_X_Y), we must remove (clear loc_X_Y)
+            for obj_name, metadata in discovered_objects.items():
+                loc = metadata.get('pos')
+                if loc:
+                    loc_str = f"loc_{loc[0]}_{loc[1]}"
+                    obj_type = metadata.get('type', 'obstacle')
+                    # If it's an obstacle (not a store), remove the conflicting (clear ...) predicate
+                    if obj_type != 'store':
+                        clear_pred = f"(clear {loc_str})"
+                        clear_pattern = rf'\(clear\s+{re.escape(loc_str)}\)'
+                        if re.search(clear_pattern, content):
+                            content = re.sub(clear_pattern + r'\s*', '', content)
+                            print(f"[PDDL_PATCHER] ✅ Removed conflicting (clear {loc_str}) for obstacle at {loc}")
 
             # 5. Inject into :init section
             # Find the :init section and its closing parenthesis

@@ -1324,16 +1324,13 @@ def run_live_dashboard():
                 else:
                     logger.warning("REPLAN", "Failed to update agent position")
                 
-                # Inject dynamic state
-                current_predicates = state_manager.get_current_state_predicates()
-                logger.info("REPLAN", f"Injecting {len(current_predicates)} predicates")
-                success = patcher.inject_dynamic_state(current_predicates)
+                # Update PDDL with discovered objects (more reliable than inject_dynamic_state)
+                logger.info("REPLAN", f"Updating PDDL with {len(state_manager.discovered_objects)} discovered objects")
+                success = patcher.update_problem_file(env.agent_pos, state_manager.discovered_objects)
                 
                 if success:
                     logger.info("REPLAN", "PDDL state synchronized")
-                    # CRITICAL: Double-check agent position is synced
-                    patcher.update_agent_position(env.agent_pos)
-                    logger.info("REPLAN", f"Agent position verified: {env.agent_pos}")
+                    # Note: update_problem_file already updates agent position, no need to call it again
                     
                     try:
                         current_plan = runner.run_planner("domain.pddl", "problem_initial.pddl")

@@ -3,11 +3,11 @@
     (:objects
       agent - agent
       loc_0_0 loc_0_1 loc_0_2 loc_0_3 loc_0_4 loc_0_5 loc_0_6 loc_0_7 loc_0_8 loc_0_9 loc_0_10 loc_0_11 loc_0_12 loc_0_13 loc_0_14 loc_0_15 loc_0_16 loc_0_17 loc_0_18 loc_0_19 loc_1_0 loc_1_1 loc_1_2 loc_1_3 loc_1_4 loc_1_5 loc_1_6 loc_1_7 loc_1_8 loc_1_9 loc_1_10 loc_1_11 loc_1_12 loc_1_13 loc_1_14 loc_1_15 loc_1_16 loc_1_17 loc_1_18 loc_1_19 loc_2_0 loc_2_1 loc_2_2 loc_2_3 loc_2_4 loc_2_5 loc_2_6 loc_2_7 loc_2_8 loc_2_9 loc_2_10 loc_2_11 loc_2_12 loc_2_13 loc_2_14 loc_2_15 loc_2_16 loc_2_17 loc_2_18 loc_2_19 loc_3_0 loc_3_1 loc_3_2 loc_3_3 loc_3_4 loc_3_5 loc_3_6 loc_3_7 loc_3_8 loc_3_9 loc_3_10 loc_3_11 loc_3_12 loc_3_13 loc_3_14 loc_3_15 loc_3_16 loc_3_17 loc_3_18 loc_3_19 loc_4_0 loc_4_1 loc_4_2 loc_4_3 loc_4_4 loc_4_5 loc_4_6 loc_4_7 loc_4_8 loc_4_9 loc_4_10 loc_4_11 loc_4_12 loc_4_13 loc_4_14 loc_4_15 loc_4_16 loc_4_17 loc_4_18 loc_4_19 loc_5_0 loc_5_1 loc_5_2 loc_5_3 loc_5_4 loc_5_5 loc_5_6 loc_5_7 loc_5_8 loc_5_9 loc_5_10 loc_5_11 loc_5_12 loc_5_13 loc_5_14 loc_5_15 loc_5_16 loc_5_17 loc_5_18 loc_5_19 loc_6_0 loc_6_1 loc_6_2 loc_6_3 loc_6_4 loc_6_5 loc_6_6 loc_6_7 loc_6_8 loc_6_9 loc_6_10 loc_6_11 loc_6_12 loc_6_13 loc_6_14 loc_6_15 loc_6_16 loc_6_17 loc_6_18 loc_6_19 loc_7_0 loc_7_1 loc_7_2 loc_7_3 loc_7_4 loc_7_5 loc_7_6 loc_7_7 loc_7_8 loc_7_9 loc_7_10 loc_7_11 loc_7_12 loc_7_13 loc_7_14 loc_7_15 loc_7_16 loc_7_17 loc_7_18 loc_7_19 loc_8_0 loc_8_1 loc_8_2 loc_8_3 loc_8_4 loc_8_5 loc_8_6 loc_8_7 loc_8_8 loc_8_9 loc_8_10 loc_8_11 loc_8_12 loc_8_13 loc_8_14 loc_8_15 loc_8_16 loc_8_17 loc_8_18 loc_8_19 loc_9_0 loc_9_1 loc_9_2 loc_9_3 loc_9_4 loc_9_5 loc_9_6 loc_9_7 loc_9_8 loc_9_9 loc_9_10 loc_9_11 loc_9_12 loc_9_13 loc_9_14 loc_9_15 loc_9_16 loc_9_17 loc_9_18 loc_9_19 loc_10_0 loc_10_1 loc_10_2 loc_10_3 loc_10_4 loc_10_5 loc_10_6 loc_10_7 loc_10_8 loc_10_9 loc_10_10 loc_10_11 loc_10_12 loc_10_13 loc_10_14 loc_10_15 loc_10_16 loc_10_17 loc_10_18 loc_10_19 loc_11_0 loc_11_1 loc_11_2 loc_11_3 loc_11_4 loc_11_5 loc_11_6 loc_11_7 loc_11_8 loc_11_9 loc_11_10 loc_11_11 loc_11_12 loc_11_13 loc_11_14 loc_11_15 loc_11_16 loc_11_17 loc_11_18 loc_11_19 loc_12_0 loc_12_1 loc_12_2 loc_12_3 loc_12_4 loc_12_5 loc_12_6 loc_12_7 loc_12_8 loc_12_9 loc_12_10 loc_12_11 loc_12_12 loc_12_13 loc_12_14 loc_12_15 loc_12_16 loc_12_17 loc_12_18 loc_12_19 loc_13_0 loc_13_1 loc_13_2 loc_13_3 loc_13_4 loc_13_5 loc_13_6 loc_13_7 loc_13_8 loc_13_9 loc_13_10 loc_13_11 loc_13_12 loc_13_13 loc_13_14 loc_13_15 loc_13_16 loc_13_17 loc_13_18 loc_13_19 loc_14_0 loc_14_1 loc_14_2 loc_14_3 loc_14_4 loc_14_5 loc_14_6 loc_14_7 loc_14_8 loc_14_9 loc_14_10 loc_14_11 loc_14_12 loc_14_13 loc_14_14 loc_14_15 loc_14_16 loc_14_17 loc_14_18 loc_14_19 loc_15_0 loc_15_1 loc_15_2 loc_15_3 loc_15_4 loc_15_5 loc_15_6 loc_15_7 loc_15_8 loc_15_9 loc_15_10 loc_15_11 loc_15_12 loc_15_13 loc_15_14 loc_15_15 loc_15_16 loc_15_17 loc_15_18 loc_15_19 loc_16_0 loc_16_1 loc_16_2 loc_16_3 loc_16_4 loc_16_5 loc_16_6 loc_16_7 loc_16_8 loc_16_9 loc_16_10 loc_16_11 loc_16_12 loc_16_13 loc_16_14 loc_16_15 loc_16_16 loc_16_17 loc_16_18 loc_16_19 loc_17_0 loc_17_1 loc_17_2 loc_17_3 loc_17_4 loc_17_5 loc_17_6 loc_17_7 loc_17_8 loc_17_9 loc_17_10 loc_17_11 loc_17_12 loc_17_13 loc_17_14 loc_17_15 loc_17_16 loc_17_17 loc_17_18 loc_17_19 loc_18_0 loc_18_1 loc_18_2 loc_18_3 loc_18_4 loc_18_5 loc_18_6 loc_18_7 loc_18_8 loc_18_9 loc_18_10 loc_18_11 loc_18_12 loc_18_13 loc_18_14 loc_18_15 loc_18_16 loc_18_17 loc_18_18 loc_18_19 loc_19_0 loc_19_1 loc_19_2 loc_19_3 loc_19_4 loc_19_5 loc_19_6 loc_19_7 loc_19_8 loc_19_9 loc_19_10 loc_19_11 loc_19_12 loc_19_13 loc_19_14 loc_19_15 loc_19_16 loc_19_17 loc_19_18 loc_19_19 - location
-rami_levy_jerusalem victory victory_store - store
+victory_store victory rami_levy_jerusalem - store
       milk - item
     )
     (:init
-      (at_agent agent loc_1_2)
+      (at_agent agent loc_10_9)
       (connected loc_0_0 loc_1_0)
     (connected loc_1_0 loc_0_0)
     (connected loc_0_0 loc_0_1)
@@ -1699,7 +1699,6 @@ rami_levy_jerusalem victory victory_store - store
     (clear loc_1_16)
     (clear loc_1_18)
     (clear loc_2_1)
-    (clear loc_2_2)
     (clear loc_2_3)
     (clear loc_2_4)
     (clear loc_2_5)
@@ -1716,7 +1715,6 @@ rami_levy_jerusalem victory victory_store - store
     (clear loc_2_17)
     (clear loc_2_18)
     (clear loc_3_1)
-    (clear loc_3_2)
     (clear loc_3_3)
     (clear loc_3_5)
     (clear loc_3_6)
@@ -1765,7 +1763,6 @@ rami_levy_jerusalem victory victory_store - store
     (clear loc_6_18)
     (clear loc_7_1)
     (clear loc_7_2)
-    (clear loc_7_3)
     (clear loc_7_4)
     (clear loc_7_5)
     (clear loc_7_6)
@@ -1796,7 +1793,6 @@ rami_levy_jerusalem victory victory_store - store
     (clear loc_9_2)
     (clear loc_9_3)
     (clear loc_9_5)
-    (clear loc_9_6)
     (clear loc_9_9)
     (clear loc_9_10)
     (clear loc_9_11)
@@ -1814,7 +1810,6 @@ rami_levy_jerusalem victory victory_store - store
     (clear loc_10_7)
     (clear loc_10_8)
     (clear loc_10_9)
-    (clear loc_10_10)
     (clear loc_10_11)
     (clear loc_10_12)
     (clear loc_10_13)
@@ -1939,36 +1934,13 @@ rami_levy_jerusalem victory victory_store - store
         
         
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         (at_store victory loc_18_18)
         (selling victory milk)
-        (at_store rami_levy_jerusalem loc_10_10)
-        (selling rami_levy_jerusalem milk)
+        (blocked loc_10_10)
         (blocked loc_2_2)
+        (blocked loc_3_2)
+        (blocked loc_7_3)
+        (blocked loc_9_6)
     )
     (:goal (and (have agent milk)))
     )
