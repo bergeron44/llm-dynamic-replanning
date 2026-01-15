@@ -518,19 +518,33 @@ def detect_new_entities(mock_agent, forbidden_entities: List[str], env, visual_m
     if visual_memory is None:
         visual_memory = set()
 
-    # Get agent's current position and direction
-    agent_pos = env.agent_pos
-    agent_dir = env.agent_dir
+    # Use semantic sensor radius when enabled (default for scenario-only runs)
+    use_semantic_env = os.environ.get('USE_SEMANTIC_SENSOR')
+    if use_semantic_env is None:
+        use_semantic = os.environ.get('SCENARIO_ONLY', 'false').lower() == 'true'
+    else:
+        use_semantic = use_semantic_env.lower() == 'true'
 
-    # Calculate visible area (simple cone in front of agent)
+    if use_semantic and hasattr(env, 'get_semantic_observation'):
+        for obj in env.get_semantic_observation():
+            entity_name = obj.get('name')
+            pos = obj.get('position')
+            if not entity_name or not pos:
+                continue
+            if entity_name in forbidden_entities:
+                continue
+            entity_key = (pos[0], pos[1], entity_name)
+            if entity_key not in visual_memory:
+                return obj
+
+    # Fallback: minimal local visibility (front + adjacent)
+    agent_pos = env.agent_pos
     visible_positions = set()
 
-    # Front position
     front_pos = env.front_pos
     if front_pos is not None:
         visible_positions.add(tuple(front_pos))
 
-    # Adjacent positions
     for dx in [-1, 0, 1]:
         for dy in [-1, 0, 1]:
             if dx == 0 and dy == 0:
@@ -539,17 +553,12 @@ def detect_new_entities(mock_agent, forbidden_entities: List[str], env, visual_m
             if 0 <= pos[0] < env.width and 0 <= pos[1] < env.height:
                 visible_positions.add(pos)
 
-    # Check for entities at visible positions
     for pos in visible_positions:
         cell = env.grid.get(pos[0], pos[1])
         if cell and hasattr(cell, 'name') and cell.name:
             entity_name = cell.name
-
-            # Skip forbidden entities
             if entity_name in forbidden_entities:
                 continue
-
-            # Check if we've seen this entity before
             entity_key = (pos[0], pos[1], entity_name)
             if entity_key not in visual_memory:
                 return {

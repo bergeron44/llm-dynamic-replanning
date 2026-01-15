@@ -11,7 +11,7 @@ SCENARIOS = {
         "victory_pos": (18, 18),
         "surprise_object": {
             "name": "old_tree_jerusalem_forest",
-            "position": (10, 10),
+            "position": (3, 2),  # Near path for reliable observation
             "true_price": None,  # Not a store, no price
             "type": "nature",
             "color": "green"
@@ -25,7 +25,7 @@ SCENARIOS = {
         "victory_pos": (18, 18),
         "surprise_object": {
             "name": "moshe_butcher_rehovot",  # Real butcher shop
-            "position": (10, 10),
+            "position": (2, 4),  # Near path for reliable observation
             "true_price": None,  # Butcher shop, doesn't sell milk
             "type": "butcher_shop",
             "color": "red"
@@ -39,7 +39,7 @@ SCENARIOS = {
         "victory_pos": (18, 18),
         "surprise_object": {
             "name": "rami_levy_jerusalem",
-            "position": (10, 10),  # Central position - moved from (2, 18)
+            "position": (10, 6),  # Visible from main path but still a detour
             "true_price": 2.5,    # Cheap price
             "type": "supermarket",
             "color": "red"
@@ -67,7 +67,7 @@ SCENARIOS = {
         "victory_pos": (10, 10),  # Closer victory to make the trap more tempting
         "surprise_object": {
             "name": "am_pm_express",
-            "position": (5, 5),     # Close but not TOO close
+            "position": (6, 4),     # Close but not TOO close
             "true_price": 12.0,     # Very expensive! (3x the victory price)
             "type": "convenience_store",
             "color": "yellow"

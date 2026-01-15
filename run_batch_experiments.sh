@@ -5,7 +5,7 @@ echo "כל תרחיש מקבל seed קבוע - כל האלגוריתמים רצ�
 echo ""
 
 # Define arrays for Scenarios and Algorithms
-SCENARIOS=("SCENARIO_1" "SCENARIO_2" "SCENARIO_3" "SCENARIO_4")
+SCENARIOS=("SCENARIO_1" "SCENARIO_2" "SCENARIO_3" "SCENARIO_4" "SCENARIO_5")
 ALGOS=("A" "B" "C" "D")
 
 # Create seeds for each scenario (deterministic but different per scenario)
@@ -14,6 +14,10 @@ SEED_SCENARIO_1=12345
 SEED_SCENARIO_2=23456
 SEED_SCENARIO_3=34567
 SEED_SCENARIO_4=45678
+SEED_SCENARIO_5=56789
+
+# Scenario isolation toggle (default: true for clean runs)
+SCENARIO_ONLY_DEFAULT=${SCENARIO_ONLY:-true}
 
 # Loop through scenarios (each gets its own seed)
 for scen in "${SCENARIOS[@]}"; do
@@ -32,7 +36,7 @@ for scen in "${SCENARIOS[@]}"; do
 
         # Run the simulation with environment variables
         # Use 'timeout' to prevent stuck loops from halting the batch
-        SEED=$seed ALGORITHM_MODE=$algo SCENARIO_ID=$scen timeout 300s python run_live_dashboard.py
+        SCENARIO_ONLY=$SCENARIO_ONLY_DEFAULT SEED=$seed ALGORITHM_MODE=$algo SCENARIO_ID=$scen timeout 300s python run_live_dashboard.py
 
         # Optional: Sleep briefly to let files close/save
         sleep 1

@@ -258,68 +258,73 @@ class RandomizedMazeEnv(MiniGridEnv):
                 surprise_ball.price = price
             self.grid.set(*obj_pos, surprise_ball)
 
-        else:
+        if not self.scenario:
             # Default Rami Levy placement (original logic)
             attempts = 0
             rami_pos = None
 
-        # Calculate points along the diagonal path with jitter
-        path_points = []
-        steps = min(width, height) // 3  # Divide path into segments
-        for i in range(1, steps):
-            # Interpolate along diagonal with some randomness
-            base_x = 1 + (victory_pos[0] - 1) * i // steps
-            base_y = 1 + (victory_pos[1] - 1) * i // steps
+            # Calculate points along the diagonal path with jitter
+            path_points = []
+            steps = min(width, height) // 3  # Divide path into segments
+            for i in range(1, steps):
+                # Interpolate along diagonal with some randomness
+                base_x = 1 + (victory_pos[0] - 1) * i // steps
+                base_y = 1 + (victory_pos[1] - 1) * i // steps
 
-            # Add random jitter (±2 in each direction)
-            jitter_x = random.randint(-2, 2)
-            jitter_y = random.randint(-2, 2)
+                # Add random jitter (±2 in each direction)
+                jitter_x = random.randint(-2, 2)
+                jitter_y = random.randint(-2, 2)
 
-            candidate_x = max(1, min(width-2, base_x + jitter_x))
-            candidate_y = max(1, min(height-2, base_y + jitter_y))
+                candidate_x = max(1, min(width-2, base_x + jitter_x))
+                candidate_y = max(1, min(height-2, base_y + jitter_y))
 
-            path_points.append((candidate_x, candidate_y))
+                path_points.append((candidate_x, candidate_y))
 
-        # Try to place at one of the path points
-        random.shuffle(path_points)  # Randomize order
-        for rx, ry in path_points:
-            if self.grid.get(rx, ry) is None:
-                rami = Ball('red')
-                rami.name = 'rami_levy'
-                rami.price = 2.5
-                self.grid.set(rx, ry, rami)
-                rami_pos = (rx, ry)
-                break
-
-        # Fallback: random placement if path points don't work
-        if rami_pos is None:
-            while attempts < 20:
-                rx = random.randint(2, width-3)
-                ry = random.randint(2, height-3)
-
-                if ((rx, ry) != (1, 1) and
-                    abs(rx - victory_pos[0]) > 3 and abs(ry - victory_pos[1]) > 3 and
-                    self.grid.get(rx, ry) is None):
-
+            # Try to place at one of the path points
+            random.shuffle(path_points)  # Randomize order
+            for rx, ry in path_points:
+                if self.grid.get(rx, ry) is None:
                     rami = Ball('red')
                     rami.name = 'rami_levy'
                     rami.price = 2.5
                     self.grid.set(rx, ry, rami)
                     rami_pos = (rx, ry)
                     break
-                attempts += 1
 
-        # Ensure Rami Levy was placed
-        if rami_pos is None:
-            # Fallback placement
-            rami_pos = (width//2, height//2)
-            rami = Ball('red')
-            rami.name = 'rami_levy'
-            rami.price = 2.5
-            self.grid.set(*rami_pos, rami)
+            # Fallback: random placement if path points don't work
+            if rami_pos is None:
+                while attempts < 20:
+                    rx = random.randint(2, width-3)
+                    ry = random.randint(2, height-3)
+
+                    if ((rx, ry) != (1, 1) and
+                        abs(rx - victory_pos[0]) > 3 and abs(ry - victory_pos[1]) > 3 and
+                        self.grid.get(rx, ry) is None):
+
+                        rami = Ball('red')
+                        rami.name = 'rami_levy'
+                        rami.price = 2.5
+                        self.grid.set(rx, ry, rami)
+                        rami_pos = (rx, ry)
+                        break
+                    attempts += 1
+
+            # Ensure Rami Levy was placed
+            if rami_pos is None:
+                # Fallback placement
+                rami_pos = (width//2, height//2)
+                rami = Ball('red')
+                rami.name = 'rami_levy'
+                rami.price = 2.5
+                self.grid.set(*rami_pos, rami)
 
         # 6. Place random stores from database (16 stores total)
-        self._place_random_stores_from_database(victory_pos)
+        # Allow scenario-only runs to disable random store noise.
+        scenario_only = os.environ.get('SCENARIO_ONLY', 'false').lower() == 'true'
+        if not scenario_only:
+            self._place_random_stores_from_database(victory_pos)
+        else:
+            print("[ENV] SCENARIO_ONLY=true - skipping random stores")
         # Close the scenario check - skip random stores when using scenarios
 
         self.mission = "Navigate maze, discover stores, buy milk efficiently"

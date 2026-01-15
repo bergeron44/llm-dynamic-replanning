@@ -686,12 +686,21 @@ def run_live_dashboard():
     # Use scenario-defined dimensions or default to 20x20
     env_width = scenario.get('width', 20)
     env_height = scenario.get('height', 20)
+    scenario_only = os.environ.get('SCENARIO_ONLY', 'false').lower() == 'true'
+    wall_density = float(os.environ.get('WALL_DENSITY', '0.2'))
+    if scenario_only and 'WALL_DENSITY' not in os.environ:
+        wall_density = 0.0
+
+    # Sensor radius: broaden in scenario-only mode so the surprise object is observed.
+    sensor_radius = int(os.environ.get('SENSOR_RADIUS', '5'))
+    if scenario_only and 'SENSOR_RADIUS' not in os.environ:
+        sensor_radius = max(env_width, env_height)
 
     env = RandomizedMazeEnv(
         width=env_width,
         height=env_height,
-        wall_density=0.2,   # 20% walls for balanced difficulty
-        sensor_radius=5,    # Appropriate sensor range
+        wall_density=wall_density,
+        sensor_radius=sensor_radius,
         render_mode='rgb_array',
         scenario=scenario    # Pass scenario for deterministic store placement
     )
@@ -1039,21 +1048,26 @@ def run_live_dashboard():
         logger.error("SYSTEM", "❌ Failed to patch Initial PDDL!")
     # ------------------------------------------------------------
 
-    # Add scenario surprise object to PDDL
+    # Optionally preload scenario surprise object into PDDL
+    # Default: do NOT preload, so algorithms decide after discovery.
     surprise_obj = scenario.get('surprise_object')
-    if surprise_obj:
-        obj_type = 'store' if surprise_obj.get('type') == 'supermarket' else 'obstacle'
+    preload_scenario_obj = os.environ.get('PRELOAD_SCENARIO_OBJECT', 'false').lower() == 'true'
+    if preload_scenario_obj and surprise_obj:
         price = surprise_obj.get('true_price')
+        # Treat priced objects as candidate stores; non-priced objects as obstacles.
+        obj_type = 'store' if price is not None and price > 0 else 'obstacle'
         state_manager.add_discovery(
             surprise_obj['name'],
             surprise_obj['position'],
             obj_type=obj_type,
-            price=price
+            price=price if obj_type == 'store' else None
         )
 
     # Ensure PDDL is up-to-date with any initial dynamic state
-    current_predicates = state_manager.get_current_state_predicates()
-    patcher.inject_dynamic_state(current_predicates)
+    # Use the robust updater to avoid clear/blocked contradictions.
+    patch_success = patcher.update_problem_file(env.agent_pos, state_manager.discovered_objects)
+    if not patch_success:
+        logger.warning("PDDL", "Initial PDDL update failed after scenario injection")
 
     # 🚨 CRITICAL FIX: Force Victory Store into PDDL (safety check)
     # This ensures victory store exists even if injection failed earlier
@@ -1194,6 +1208,32 @@ def run_live_dashboard():
                 if not store_name and current_agent_pos_tuple == victory_pos:
                     store_name = "victory"
                     price_paid = 4.0
+
+                # Prefer the scenario true price for the surprise store
+                if store_name and surprise_obj and store_name == surprise_obj.get('name'):
+                    try:
+                        true_price = surprise_obj.get('true_price')
+                        if true_price is not None:
+                            price_paid = float(true_price)
+                    except Exception:
+                        pass
+
+                # Fallback: use the cell's stored price if available
+                if price_paid == 4.0 and current_cell is not None and hasattr(current_cell, 'price'):
+                    try:
+                        price_paid = float(current_cell.price)
+                    except Exception:
+                        pass
+
+                # Final fallback: use scenario surprise object price by position
+                if price_paid == 4.0 and surprise_obj:
+                    try:
+                        if tuple(surprise_obj.get('position', ())) == current_agent_pos_tuple:
+                            true_price = surprise_obj.get('true_price')
+                            if true_price is not None:
+                                price_paid = float(true_price)
+                    except Exception:
+                        pass
                 
                 logger.info("VICTORY", f"🎉 MISSION ACCOMPLISHED at {store_name or 'store'}! Price paid: ${price_paid:.2f}")
                 victory_achieved = True
@@ -1715,7 +1755,34 @@ def run_live_dashboard():
                                         if 'price' in obj_data['properties']:
                                             price_paid = obj_data['properties']['price']
                                             break
+
+                                # Fallback: use the cell's stored price if available
+                                cell = env.grid.get(curr_pos[0], curr_pos[1])
+                                if price_paid == 4.0 and cell is not None and hasattr(cell, 'price'):
+                                    try:
+                                        price_paid = float(cell.price)
+                                    except Exception:
+                                        pass
+
+                                # Final fallback: use scenario surprise object price by position
+                                if price_paid == 4.0 and surprise_obj:
+                                    try:
+                                        if tuple(surprise_obj.get('position', ())) == curr_pos:
+                                            true_price = surprise_obj.get('true_price')
+                                            if true_price is not None:
+                                                price_paid = float(true_price)
+                                    except Exception:
+                                        pass
                                 
+                                # Prefer the scenario true price for the surprise store
+                                if surprise_obj and store_name == surprise_obj.get('name'):
+                                    try:
+                                        true_price = surprise_obj.get('true_price')
+                                        if true_price is not None:
+                                            price_paid = float(true_price)
+                                    except Exception:
+                                        pass
+
                                 logger.info("BUY_ACTION", f"✅ Successfully bought milk at {store_name}! Price: ${price_paid:.2f}")
                                 victory_achieved = True
                                 final_price_paid = price_paid
@@ -1727,8 +1794,38 @@ def run_live_dashboard():
                                         pddl_content = f.read()
                                         if f"(selling {store_name} milk)" in pddl_content:
                                             logger.warning("BUY_ACTION", f"⚠️ Toggle executed but no reward - assuming purchase succeeded (PDDL confirms store sells milk)")
+                                            # Resolve price even without reward
+                                            price_paid = 4.0
+                                            for obj_name, obj_data in state_manager.discovered_objects.items():
+                                                if obj_name == store_name and 'properties' in obj_data:
+                                                    if 'price' in obj_data['properties']:
+                                                        price_paid = obj_data['properties']['price']
+                                                        break
+                                            cell = env.grid.get(curr_pos[0], curr_pos[1])
+                                            if price_paid == 4.0 and cell is not None and hasattr(cell, 'price'):
+                                                try:
+                                                    price_paid = float(cell.price)
+                                                except Exception:
+                                                    pass
+                                            if price_paid == 4.0 and surprise_obj:
+                                                try:
+                                                    if tuple(surprise_obj.get('position', ())) == curr_pos:
+                                                        true_price = surprise_obj.get('true_price')
+                                                        if true_price is not None:
+                                                            price_paid = float(true_price)
+                                                except Exception:
+                                                    pass
+                                            # Prefer the scenario true price for the surprise store
+                                            if surprise_obj and store_name == surprise_obj.get('name'):
+                                                try:
+                                                    true_price = surprise_obj.get('true_price')
+                                                    if true_price is not None:
+                                                        price_paid = float(true_price)
+                                                except Exception:
+                                                    pass
+
                                             victory_achieved = True
-                                            final_price_paid = 4.0
+                                            final_price_paid = price_paid
                                             done = True  # Exit main loop
                                         else:
                                             logger.warning("BUY_ACTION", f"⚠️ Purchase failed - {store_name} doesn't sell milk in PDDL!")
@@ -1894,7 +1991,34 @@ def run_live_dashboard():
                                     if 'price' in obj_data['properties']:
                                         price_paid = obj_data['properties']['price']
                                         break
+
+                            # Fallback: use the cell's stored price if available
+                            cell = env.grid.get(curr_pos[0], curr_pos[1])
+                            if price_paid == 4.0 and cell is not None and hasattr(cell, 'price'):
+                                try:
+                                    price_paid = float(cell.price)
+                                except Exception:
+                                    pass
+
+                            # Final fallback: use scenario surprise object price by position
+                            if price_paid == 4.0 and surprise_obj:
+                                try:
+                                    if tuple(surprise_obj.get('position', ())) == curr_pos:
+                                        true_price = surprise_obj.get('true_price')
+                                        if true_price is not None:
+                                            price_paid = float(true_price)
+                                except Exception:
+                                    pass
                             
+                            # Prefer the scenario true price for the surprise store
+                            if surprise_obj and store_name == surprise_obj.get('name'):
+                                try:
+                                    true_price = surprise_obj.get('true_price')
+                                    if true_price is not None:
+                                        price_paid = float(true_price)
+                                except Exception:
+                                    pass
+
                             logger.info("BUY_ACTION", f"✅ Successfully bought milk at {store_name}! Price: ${price_paid:.2f}")
                             victory_achieved = True
                             final_price_paid = price_paid
@@ -1906,8 +2030,38 @@ def run_live_dashboard():
                                     pddl_content = f.read()
                                     if f"(selling {store_name} milk)" in pddl_content:
                                         logger.warning("BUY_ACTION", f"⚠️ Toggle executed but no reward - assuming purchase succeeded (PDDL confirms store sells milk)")
+                                        # Resolve price even without reward
+                                        price_paid = 4.0
+                                        for obj_name, obj_data in state_manager.discovered_objects.items():
+                                            if obj_name == store_name and 'properties' in obj_data:
+                                                if 'price' in obj_data['properties']:
+                                                    price_paid = obj_data['properties']['price']
+                                                    break
+                                        cell = env.grid.get(curr_pos[0], curr_pos[1])
+                                        if price_paid == 4.0 and cell is not None and hasattr(cell, 'price'):
+                                            try:
+                                                price_paid = float(cell.price)
+                                            except Exception:
+                                                pass
+                                        if price_paid == 4.0 and surprise_obj:
+                                            try:
+                                                if tuple(surprise_obj.get('position', ())) == curr_pos:
+                                                    true_price = surprise_obj.get('true_price')
+                                                    if true_price is not None:
+                                                        price_paid = float(true_price)
+                                            except Exception:
+                                                pass
+                                        # Prefer the scenario true price for the surprise store
+                                        if surprise_obj and store_name == surprise_obj.get('name'):
+                                            try:
+                                                true_price = surprise_obj.get('true_price')
+                                                if true_price is not None:
+                                                    price_paid = float(true_price)
+                                            except Exception:
+                                                pass
+
                                         victory_achieved = True
-                                        final_price_paid = 4.0
+                                        final_price_paid = price_paid
                                         done = True  # Exit main loop
                                     else:
                                         logger.warning("BUY_ACTION", f"⚠️ Purchase failed - {store_name} doesn't sell milk in PDDL!")

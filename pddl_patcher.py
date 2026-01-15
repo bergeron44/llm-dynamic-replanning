@@ -181,10 +181,35 @@ class PDDLPatcher:
 
     def update_agent_position(self, agent_pos):
         """Updates the (at_agent agent ...) predicate in the PDDL file to current pos."""
-        # Use inject_dynamic_state instead to ensure proper structure
+        # Use inject_dynamic_state first to ensure proper structure
         new_pred = f"(at_agent agent loc_{agent_pos[0]}_{agent_pos[1]})"
-        # inject_dynamic_state will handle removing old at_agent predicates and adding new one
-        return self.inject_dynamic_state([new_pred])
+        if self.inject_dynamic_state([new_pred]):
+            return True
+
+        # Fallback: direct replace/insert if inject failed
+        try:
+            with open(self.pddl_file_path, 'r') as f:
+                content = f.read()
+
+            if re.search(r'\(at_agent agent loc_\d+_\d+\)', content):
+                content = re.sub(r'\(at_agent agent loc_\d+_\d+\)', new_pred, content)
+            else:
+                init_start = content.find("(:init")
+                if init_start == -1:
+                    print("[PDDL] Could not find :init section for agent update")
+                    return False
+                init_end = self._find_init_end(content)
+                if init_end == -1:
+                    print("[PDDL] Could not find :init end for agent update")
+                    return False
+                content = content[:init_end] + f"\n    {new_pred}" + content[init_end:]
+
+            with open(self.pddl_file_path, 'w') as f:
+                f.write(content)
+            return True
+        except Exception as e:
+            print(f"[PDDL] Error updating agent position: {e}")
+            return False
 
     def update_problem_file(self, agent_pos, discovered_objects, output_path=None):
         """

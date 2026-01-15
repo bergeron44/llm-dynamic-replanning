@@ -25,6 +25,7 @@
 | **SCENARIO_2** | קצביית משה | קצב שמוכר בשר ולא חלב | בדיקת רלוונטיות שגויה |
 | **SCENARIO_3** | רמי לוי | סופר זול אבל רחוק מאוד | בדיקת איזון עלות-מרחק |
 | **SCENARIO_4** | מגה בולדוג | סופר זול וקרוב | התרחיש "המתוק" |
+| **SCENARIO_5** | AM:PM Express | חנות יקרה וקרובה | בדיקת "מלכודת" מחיר |
 
 ## 🏗️ **ארכיטקטורת המערכת**
 
@@ -218,7 +219,7 @@ class LLMReasoner:
 
 ### **📋 `scenarios.py` - הגדרת התרחישים**
 
-**תפקיד:** מגדיר 4 תרחישי בדיקה שונים לבחינת האלגוריתמים.
+**תפקיד:** מגדיר 5 תרחישי בדיקה שונים לבחינת האלגוריתמים.
 
 **תוכן מרכזי:**
 ```python
@@ -230,7 +231,7 @@ SCENARIOS = {
         "victory_pos": (18, 18),
         "surprise_object": {
             "name": "old_tree_jerusalem_forest",
-            "position": (10, 10),
+            "position": (3, 2),
             "true_price": None,  # לא חנות
             "type": "nature",
             "color": "green"
@@ -648,3 +649,55 @@ ALGORITHM_MODE=C SCENARIO_ID=SCENARIO_4 python run_live_dashboard.py
 ---
 
 **🚀 הכלי הזה מאפשר לך לראות בדיוק איך AI חושב, מגלה ומתאים את עצמו בזמן אמת!** 🎮✨
+
+# 🔬 Latest Batch Results (run_batch_experiments.sh)
+*(Single run per scenario/algorithm; shared seed per scenario. Scenario-only, no random stores, full sensor radius.)*
+
+## ✅ What Each Scenario Tests
+- **SCENARIO_1**: irrelevant noise (object that is not a milk store)
+- **SCENARIO_2**: relevant-but-wrong store (butcher shop, no milk)
+- **SCENARIO_3**: cheap but far (tests cost–distance tradeoff)
+- **SCENARIO_4**: close + reasonable price (should replan)
+- **SCENARIO_5**: expensive trap (should ignore)
+
+## 📑 Results by Scenario
+
+### SCENARIO_1
+| Algorithm | Steps | Cost | Time (s) | Replans | LLM Calls | Final Price | Victory |
+|-----------|-------|------|----------|---------|-----------|-------------|---------|
+| A | 37 | 37.00 | 5.483 | 0 | 0 | 4.00 | True |
+| B | 37 | 37.00 | 5.434 | 0 | 0 | 4.00 | True |
+| C | 37 | 37.00 | 5.831 | 0 | 0 | 4.00 | True |
+| D | 37 | 37.00 | 5.454 | 0 | 0 | 4.00 | True |
+
+### SCENARIO_2
+| Algorithm | Steps | Cost | Time (s) | Replans | LLM Calls | Final Price | Victory |
+|-----------|-------|------|----------|---------|-----------|-------------|---------|
+| A | 37 | 37.00 | 5.908 | 0 | 0 | 4.00 | True |
+| B | 37 | 37.00 | 5.379 | 0 | 0 | 4.00 | True |
+| C | 37 | 37.00 | 5.505 | 0 | 0 | 4.00 | True |
+| D | 37 | 37.00 | 5.874 | 0 | 0 | 4.00 | True |
+
+### SCENARIO_3
+| Algorithm | Steps | Cost | Time (s) | Replans | LLM Calls | Final Price | Victory |
+|-----------|-------|------|----------|---------|-----------|-------------|---------|
+| A | 37 | 37.00 | 5.557 | 0 | 0 | 4.00 | True |
+| B | 16 | 16.00 | 3.702 | 1 | 0 | 2.50 | True |
+| C | 16 | 16.00 | 4.169 | 1 | 0 | 2.50 | True |
+| D | 37 | 37.00 | 5.475 | 0 | 0 | 4.00 | True |
+
+### SCENARIO_4
+| Algorithm | Steps | Cost | Time (s) | Replans | LLM Calls | Final Price | Victory |
+|-----------|-------|------|----------|---------|-----------|-------------|---------|
+| A | 37 | 37.00 | 5.552 | 0 | 0 | 4.00 | True |
+| B | 6 | 6.00 | 2.406 | 1 | 0 | 3.50 | True |
+| C | 6 | 6.00 | 2.393 | 1 | 0 | 3.50 | True |
+| D | 37 | 37.00 | 5.472 | 0 | 0 | 4.00 | True |
+
+### SCENARIO_5
+| Algorithm | Steps | Cost | Time (s) | Replans | LLM Calls | Final Price | Victory |
+|-----------|-------|------|----------|---------|-----------|-------------|---------|
+| A | 21 | 21.00 | 4.043 | 0 | 0 | 4.00 | True |
+| B | 10 | 10.00 | 3.567 | 1 | 0 | 12.00 | True |
+| C | 21 | 21.00 | 3.780 | 0 | 0 | 4.00 | True |
+| D | 21 | 21.00 | 4.034 | 0 | 0 | 4.00 | True |

@@ -298,11 +298,11 @@ class LLMReasoner:
                 "sells_milk": True,
                 "estimated_price": 4.0
             }
-        elif "am:pm" in name or "yellow" in name:
+        elif "am:pm" in name or "am_pm" in name or "yellow" in name:
             return {
                 "type": "Convenience store",
                 "sells_milk": True,
-                "estimated_price": 6.0
+                "estimated_price": 12.0
             }
         elif "american" in name.lower() or "eagle" in name.lower():
             return {

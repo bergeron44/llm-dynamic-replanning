@@ -66,6 +66,18 @@ STORES_DATABASE = {
         "real_info": "Mid-range supermarket with focus on fresh products and organic options"
     },
 
+    "am_pm_express": {
+        "type": "convenience_store",
+        "sells_milk": True,
+        "category": "convenience",
+        "description": "AM:PM Express convenience store - very expensive",
+        "address": "Various locations",
+        "city": "Israel",
+        "price_estimate": 12.0,
+        "color": "yellow",
+        "real_info": "24/7 convenience store chain, known for high prices on convenience items"
+    },
+
     # 👕 בגדים ומסעדות (5)
     "zara_tel_aviv": {
         "type": "clothing_store",

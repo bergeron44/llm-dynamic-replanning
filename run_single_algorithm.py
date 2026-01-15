@@ -18,7 +18,8 @@ def run_algorithm(algorithm, scenarios):
         'SCENARIO_1': 12345,
         'SCENARIO_2': 23456,
         'SCENARIO_3': 34567,
-        'SCENARIO_4': 45678
+        'SCENARIO_4': 45678,
+        'SCENARIO_5': 56789
     }
 
     for scenario in scenarios:
@@ -32,6 +33,8 @@ def run_algorithm(algorithm, scenarios):
         env['ALGORITHM_MODE'] = algorithm
         env['SCENARIO_ID'] = scenario
         env['SEED'] = str(seed)
+        env.setdefault('SCENARIO_ONLY', 'true')
+        env.setdefault('USE_FIXED_SEED', 'true')
 
         # Run simulation
         try:
@@ -74,7 +77,7 @@ def show_results():
         print("אין קובץ תוצאות")
 
 if __name__ == "__main__":
-    scenarios = ['SCENARIO_1', 'SCENARIO_2', 'SCENARIO_3', 'SCENARIO_4']
+    scenarios = ['SCENARIO_1', 'SCENARIO_2', 'SCENARIO_3', 'SCENARIO_4', 'SCENARIO_5']
 
     print("בחר אלגוריתם להרצה:")
     print("A - העיוור (Baseline)")
