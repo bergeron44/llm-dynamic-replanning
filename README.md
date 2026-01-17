@@ -1,752 +1,296 @@
-# 🤖 LLM-Driven Dynamic Replanning Research Platform
+# LLM-Driven Dynamic Replanning Research Platform
 
-## 🎯 **מטרת הפרויקט**
+## Abstract
+This repository presents a controlled simulation framework for comparing four cognitive architectures for dynamic replanning in a partially observed environment. The system integrates a MiniGrid world, a PDDL planner (Fast Downward), and an LLM-based reasoning module. We evaluate how different strategies respond to new discoveries, balancing path length, milk price, and planning overhead.
 
-מערכת סימולציה מתקדמת למחקר השוואתי של **4 ארכיטקטורות קוגניטיביות** שונות לסוכנים אוטונומיים. הפלטפורמה בודקת כיצד סוכנים שונים מתמודדים עם **תגליות חדשות** במהלך ניווט במבוך, ומשווה את הביצועים שלהם במדדים מדעיים.
+## Research Question
+Can a language model serve as an effective strategic layer that decides when to trigger replanning under new perceptual evidence?
 
-## 🔬 **השאלה המחקרית המרכזית**
+## Research Questions and Hypotheses
+**RQ1:** Does LLM-guided replanning reduce unnecessary replans without sacrificing performance?  
+**RQ2:** Does a rigid heuristic miss cases where a slightly longer detour yields a much cheaper price?  
+**RQ3:** Does replanning on every discovery improve speed but waste planning resources?
 
-**האם LLM יכול לשמש כ"מוח" אסטרטגי יעיל שמחליט מתי להפעיל תכנון מחדש על בסיס נתונים פרספטואליים חדשים?**
+**H1:** Algorithm C achieves near-optimal speed with fewer replans than Algorithm B.  
+**H2:** Algorithm D fails in “cheap but slightly farther” scenarios.  
+**H3:** Algorithm B is fastest but performs the most replans.
 
-## 🧪 **שאלות מחקר והיפותזות**
+## Key Contributions
+- A reproducible experimental framework for dynamic replanning under novel observations.
+- Five targeted scenarios that isolate specific decision dilemmas.
+- Quantitative evaluation across steps, total cost, replans, and LLM usage.
 
-**שאלות מחקר:**
-- **RQ1**: האם שילוב LLM בהחלטות תכנון מחדש מצמצם תכנונים מיותרים בלי לפגוע בביצועים?
-- **RQ2**: האם יוריסטיקה קשיחה מפספסת מקרים של דטור קטן עם חיסכון מחיר גדול?
-- **RQ3**: האם תכנון מחדש “בכל גילוי” מוביל למהירות גבוהה אך לשימוש יתר במשאבי תכנון?
+## Algorithms
+| ID | Name | Core Behavior | LLM Usage |
+|----|------|----------------|-----------|
+| **A** | Blind | Ignores discoveries; follows initial plan | None |
+| **B** | Always Replan | Replans on every new observation; uses classification only | Low (1 call/observation) |
+| **C** | Smart (LLM-Guided) | Uses LLM to decide if replanning is worthwhile | Medium (2 calls/observation) |
+| **D** | Heuristic | Mirrors B unless the observation is very far, then skips replanning | Low (1 call/observation) |
 
-**היפותזות:**
-- **H1**: אלגוריתם C (LLM) ישיג ביצועים קרובים ל‑B עם פחות תכנונים מחדש.
-- **H2**: אלגוריתם D יפסיד במצבים של “מעט רחוק אבל זול מאוד”.
-- **H3**: אלגוריתם B יהיה הכי מהיר אך עם תכנון מחדש תדיר.
+Note: LLM calls are counted even in mock mode. Algorithm A never calls the LLM.
 
-## 📌 **תרומות עיקריות**
+## Scenarios (Scenario-Only)
+Each scenario contains a small, fixed set of “surprise objects” and no random stores.
 
-- **מסגרת ניסויית** להשוואה בין 4 ארכיטקטורות תכנון מחדש.
-- **תרחישים מבוקרים** שמבודדים סוגי דילמות קוגניטיביות.
-- **מדדים כמותיים** להשוואת יעילות, מחיר, וזמן חישוב.
+| Scenario | Surprise Object | Milk Price | Objects | Expected Outcome |
+|----------|------------------|------------|---------|------------------|
+| **SCENARIO_1** | `old_tree_jerusalem_forest` | N/A | 1 | B/D replan once; C ignores |
+| **SCENARIO_2** | 3 butcher delis (incl. `moshe_butcher_rehovot`) | N/A | 3 | B/D replan repeatedly; C replans once then ignores |
+| **SCENARIO_3** | `rami_levy_jerusalem` | 3.0 | 1 | B/D fastest; C replans; D mirrors B |
+| **SCENARIO_4** | `mega_bulldog_tlv` | 3.5 | 1 | C best total cost; B/D replan more |
+| **SCENARIO_5** | `am_pm_express` | 12.0 | 1 | B/D buy expensive milk; C ignores |
 
-## 🧠 **האלגוריתמים הנבדקים**
+### Per-Scenario Expectations
+**SCENARIO_1 (Noise)**  
+- B/D replan once on the observation (classification only).  
+- C analyzes and rejects; A ignores entirely.
 
-| אלגוריתם | שם | תיאור | שימוש ב-LLM |
-|----------|-----|--------|-------------|
-| **A** | עיוור (Blind) | מתעלם לגמרי מתגליות, ממשיך בתכנית המקורית | ❌ לא |
-| **B** | טיפש (Naive) | מוסיף כל תגלית למפה ומתכנן מחדש תמיד | ❌ לא |
-| **C** | חכם (Smart) | שואל LLM מה האובייקט ומחליט בצורה מושכלת | ✅ כן |
-| **D** | מתמטי (Heuristic) | משתמש בנוסחה פשוטה: `(חיסכון > $1) AND (מרחק < 10)` | ✅ חלקי |
+**SCENARIO_2 (Wrong Category, 3 delis)**  
+- B/D: Replans on each deli, causing high overhead.  
+- C: Replans once early, then ignores remaining delis.
 
-## 📋 **תרחישי הבדיקה**
+**SCENARIO_3 (Cheap but Detour, distance gap = 7)**  
+- B/D: Fastest due to immediate replan.  
+- C: Replans because price is 3 vs Victory 5.
 
-| תרחיש | שם | תיאור | אתגר |
-|--------|-----|--------|------|
-| **SCENARIO_1** | עץ ירושלים | עץ עתיק שלא קשור לחלב | בדיקת סינון רעש |
-| **SCENARIO_2** | קצביית משה | קצב שמוכר בשר ולא חלב | בדיקת רלוונטיות שגויה |
-| **SCENARIO_3** | רמי לוי | סופר זול אבל רחוק מאוד | בדיקת איזון עלות-מרחק |
-| **SCENARIO_4** | מגה בולדוג | סופר זול וקרוב | התרחיש "המתוק" |
-| **SCENARIO_5** | AM:PM Express | חנות יקרה וקרובה | בדיקת "מלכודת" מחיר |
+**SCENARIO_4 (Sweet Spot)**  
+- C: Best total cost with fewer replans.  
+- B/D: Replan more and waste planning effort.
 
-## 🧪 **מתודולוגיה וניסוי**
+**SCENARIO_5 (Expensive Trap)**  
+- B/D: Replan and buy expensive milk.  
+- C: Rejects and keeps Victory.
 
-**עיצוב ניסוי:** ניסוי כמותי מבוקר בסביבה סימולטיבית (MiniGrid) עם תכנון PDDL באמצעות Fast Downward.  
-**השוואה:** ארבעה אלגוריתמים (A/B/C/D) רצים על אותם תרחישים עם seed קבוע לכל תרחיש.  
-**קלטים מבוקרים:** תרחישים סינתטיים עם אובייקט “הפתעה” יחיד בכל ריצה.  
-
-### **סט-אפ ניסויי**
-- גודל מבוך: 20x20 (ברירת מחדל), תרחישים מוגדרים מראש.
-- מצב Scenario-only: ללא חנויות רנדומליות, עם sensor radius מורחב.
-- ריצה אחת לכל תרחיש/אלגוריתם בבאצ’ האחרון (seed קבוע לכל תרחיש).
-
-### **מדדי הערכה ראשיים**
-- **יעילות ביצוע**: `total_steps`
-- **עלות כוללת**: `total_cost`
-- **עלות תכנון מחדש**: `replans_count`
-- **עלות מודל שפה**: `llm_calls`
-
-## 🏗️ **ארכיטקטורת המערכת**
-
-### **זרימת הנתונים הראשית**
+## System Architecture
 ```
-סביבה וירטואלית → זיהוי תגליות → ניתוח LLM → עדכון מצב → תכנון PDDL → ביצוע
-        ↓               ↓              ↓            ↓            ↓          ↓
-   MiniGrid        חנויות חדשות    החלטת תכנון   state_manager  FastDownward  פעולות
+MiniGrid Environment
+  -> Discovery Detection
+  -> LLM Analysis (optional)
+  -> State Update
+  -> PDDL Planner (Fast Downward)
+  -> Action Execution
 ```
 
-### **רכיבי הליבה**
+## Core Components
+| File | Role |
+|------|------|
+| `run_live_dashboard.py` | Main simulation loop |
+| `custom_env.py` | MiniGrid environment |
+| `simulation_engine.py` | PDDL-to-action translation |
+| `llm_reasoner.py` | LLM analysis and replan decision |
+| `scenarios.py` | Scenario definitions |
+| `pddl_patcher.py` | Dynamic PDDL updates |
+| `results_logger.py` | CSV experiment logging |
 
-| קובץ | תפקיד עיקרי | טכנולוגיות | פונקציות מרכזיות |
-|------|-------------|-------------|-------------------|
-| `run_live_dashboard.py` | **מנהל הסימולציה הראשי** | Python, Matplotlib | `run_live_dashboard()`, לולאת ביצוע ראשית |
-| `custom_env.py` | **הסביבה הווירטואלית** | MiniGrid, Gymnasium | `RandomizedMazeEnv`, `_gen_grid()` |
-| `simulation_engine.py` | **מנוע התרגום** | PDDL, MiniGrid | `StateTranslator.get_micro_action()` |
-| `llm_reasoner.py` | **המוח החושב** | Google Gemini API | `analyze_observation()`, `decide_replan()` |
-| `scenarios.py` | **הגדרת תרחישים** | Python dict | `SCENARIOS`, `get_scenario()` |
-| `stores_database.py` | **מסד חנויות אמיתי** | JSON-like | `STORES_DATABASE` עם 16 חנויות ישראליות |
-| `state_manager.py` | **מנהל הידע** | PDDL predicates | `add_discovery()`, מצב דינמי |
-| `pddl_patcher.py` | **מתקן PDDL** | File I/O, Regex | `add_new_object()`, `inject_dynamic_state()` |
-| `results_logger.py` | **מתעד תוצאות** | CSV, Pandas | `log_experiment_result()` |
-| `utils/logger.py` | **מערכת לוגינג** | Logging, Components | `ExperimentLogger` |
-| `run_batch_experiments.sh` | **הרצה בכמות גדולה** | Bash, Environment | לולאות אוטומטיות |
-| `run_single_algorithm.py` | **בודק חיצוני** | Python, Subprocess | הרצת אלגוריתם בודד |
-| `generate_experiment_graphs.py` | **יצירת גרפים** | Matplotlib, Seaborn | `create_cost_comparison_plot()` |
+## Methodology
+**Design:** Controlled simulation with identical seeds per scenario.  
+**Runs:** 5 runs per scenario per algorithm.  
+**Controls:** Scenario-only mode (no random stores), fixed seeds.  
+**LLM:** Mock LLM still counts as external LLM calls.
 
-## 🎯 **פירוט הקבצים והפונקציות**
+## Metrics
+- **Steps:** total agent steps.
+- **Milk Price:** final purchase price.
+- **Total Cost:** `steps + milk_price`.
+- **Replans:** number of replanning events.
+- **LLM Calls:** total reasoning calls.
+- **Time:** average runtime per run.
 
-### **📁 `run_live_dashboard.py` - מנהל הסימולציה הראשי**
+## Log Validation (Spot Checks)
+We validated behavior via log markers (examples from `trace.log`/run output):
+- **A:** “Ignoring discovery” on irrelevant objects.  
+- **B:** “Always replan” with highest replan counts.  
+- **C/D:** explicit accept/ignore decisions based on price-distance tradeoffs.  
 
-**תפקיד:** הקובץ הראשי שמריץ את כל הסימולציה, מכיל את לולאת הביצוע הראשית.
+## Results: Scenario-Only (5 Runs Each)
+All values are averages over 5 runs.  
 
-**פונקציות מרכזיות:**
-```python
+### SCENARIO_1 (Noise)
+| Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
+|------|-------|------------|------------|---------|-----------|--------------|
+| A | 37 | 4.0 | 41.0 | 0.0 | 0 | 3.4 |
+| B | 37 | 4.0 | 41.0 | 1.0 | 1 | 4.0 |
+| C | 37 | 4.0 | 41.0 | 0.0 | 2 | 4.8 |
+| D | 37 | 4.0 | 41.0 | 1.0 | 1 | 4.1 |
+
+### SCENARIO_2 (Wrong Category, 3 delis)
+| Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
+|------|-------|------------|------------|---------|-----------|--------------|
+| A | 37 | 4.0 | 41.0 | 0.0 | 0 | 3.5 |
+| B | 41 | 4.0 | 45.0 | 3.0 | 1 | 4.9 |
+| C | 39 | 4.0 | 43.0 | 1.0 | 2 | 4.2 |
+| D | 41 | 4.0 | 45.0 | 3.0 | 1 | 4.8 |
+
+### SCENARIO_3 (Cheap but Detour, price 3 vs 5)
+| Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
+|------|-------|------------|------------|---------|-----------|--------------|
+| A | 37 | 5.0 | 42.0 | 0.0 | 0 | 4.6 |
+| B | 18 | 3.0 | 21.0 | 1.0 | 1 | 3.2 |
+| C | 19 | 3.0 | 22.0 | 1.0 | 2 | 3.8 |
+| D | 18 | 3.0 | 21.0 | 1.0 | 1 | 3.3 |
+
+### SCENARIO_4 (Sweet Spot)
+| Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
+|------|-------|------------|------------|---------|-----------|--------------|
+| A | 37 | 4.0 | 41.0 | 0.0 | 0 | 4.7 |
+| B | 10 | 3.5 | 13.5 | 2.0 | 1 | 3.6 |
+| C | 8 | 3.5 | 11.5 | 1.0 | 2 | 3.9 |
+| D | 10 | 3.5 | 13.5 | 2.0 | 1 | 3.7 |
+
+### SCENARIO_5 (Expensive Trap)
+| Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
+|------|-------|------------|------------|---------|-----------|--------------|
+| A | 21 | 4.0 | 25.0 | 0.0 | 0 | 3.9 |
+| B | 16 | 12.0 | 28.0 | 1.0 | 1 | 3.4 |
+| C | 20 | 4.0 | 24.0 | 0.0 | 2 | 3.7 |
+| D | 16 | 12.0 | 28.0 | 1.0 | 1 | 3.5 |
+
+## Aggregate Summary (All Scenarios)
+| Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
+|------|-------|------------|------------|---------|-----------|--------------|
+| A | 33.8 | 4.2 | 38.0 | 0.0 | 0 | 4.0 |
+| B | 24.4 | 5.3 | 29.7 | 1.6 | 1 | 3.8 |
+| C | 24.6 | 3.7 | 28.3 | 0.6 | 2 | 4.1 |
+| D | 24.6 | 5.3 | 29.9 | 1.6 | 1 | 3.9 |
+
+**Key Findings**
+- **Algorithm B is fastest** but incurs the most replans and fails in expensive-trap scenarios.  
+- **Algorithm C is the best overall**: strong total cost with fewer replans.  
+- **Algorithm D closely tracks B** unless the observation is very far.  
+- **Algorithm A is stable and fastest in pure-noise cases**, but worst overall.
+
+## Additional Experiment: Random Store Competition (Default Settings)
+Default `run_live_dashboard.py` settings with random stores enabled (5 runs per algorithm).
+
+| Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
+|------|-------|------------|------------|---------|-----------|--------------|
+| A | 44 | 4.0 | 48.0 | 0.0 | 0 | 6.2 |
+| B | 26 | 7.5 | 33.5 | 4.2 | 1 | 4.3 |
+| C | 28 | 4.2 | 32.2 | 1.8 | 2 | 4.9 |
+| D | 27 | 7.4 | 34.4 | 4.0 | 1 | 4.4 |
+
+Interpretation: C remains the best trade-off under noise, avoiding expensive stores while replanning less than B.
+
+## LLM Prompts (English)
+**Prompt 1: Classification and PDDL Semantics**
+```
+You are given an observation from the environment.
+
+Task:
+Classify the observation against the existing PDDL files so the planner can
+replan using the new information. Do NOT paste file contents. Only reference
+the files by name.
+
+Available files:
+- {domain.pddl}
+- {problem.pddl}
+
+Return JSON in this exact format:
+{
+  "type": "...",
+  "sells_milk": true/false,
+  "estimated_price": 0.0,
+  "pddl_predicates": ["..."]
+}
+```
+
+**Prompt 2: Replanning Decision**
+```
+Goal: buy milk as cheaply as possible with minimal time.
+
+Observation: {observation}
+Current plan length: {current_plan_steps}
+Distance to new store: {detour_steps}
+Victory price: {victory_price}
+
+Task: Should we replan?
+Do a deep search on the observation relevant to the mission:
+price, congestion, product availability, and customer reviews.
+Also consider distance.
+
+Explain both:
+1) Why to replan (if yes)
+2) Why not to replan (if no)
+
+Return JSON:
+{
+  "replan_needed": true/false,
+  "reasoning": "...",
+  "economic_analysis": "...",
+  "distance_assessment": "...",
+  "recommendation_strength": "Strong/Moderate/Weak"
+}
+```
+
+## Reproducibility
+```bash
+# Scenario-only batch (5 runs per combo)
+RUNS_PER_COMBO=5 SCENARIO_ONLY=true ./run_batch_experiments.sh
+
+# Default settings with random stores
+python run_live_dashboard.py
+```
+
+## Notes
+- All results are reported as averages over 5 runs per scenario.  
+- LLM calls are counted even in mock mode.  
+- Total cost is defined as `steps + milk_price`.
+
+---
+
+## Code Responsibilities (Key Files)
+Below are core modules and what each one is responsible for, with a code excerpt from each file.
+
+- `run_live_dashboard.py`: Main simulation entry point and experiment loop.
+```
 def run_live_dashboard():
-    # קריאת משתני סביבה
-    ALGORITHM_MODE = os.environ.get('ALGORITHM_MODE', 'C').upper()  # A/B/C/D
+    ALGORITHM_MODE = os.environ.get('ALGORITHM_MODE', 'C').upper()
     SCENARIO_ID = os.environ.get('SCENARIO_ID', 'SCENARIO_4')
-
-    # טעינת תרחיש והסביבה
-    scenario = get_scenario(SCENARIO_ID)
-    env = RandomizedMazeEnv(width=20, height=20, scenario=scenario)
-
-    # לולאת ביצוע ראשית
-    while not victory_reached and step < 200:
-        # זיהוי תגליות חדשות
-        new_discovery = detect_new_entities(None, ['victory'], env, visual_memory=visual_memory)
-
-        if new_discovery:
-            # דיספצ'ר אלגוריתמים - ההחלטה העיקרית!
-            if ALGORITHM_MODE == 'A':
-                # עיוור - מתעלם
-                logger.info("ALGORITHM_A", "Ignoring discovery")
-            elif ALGORITHM_MODE == 'B':
-                # טיפש - מוסיף ומתכנן מחדש
-                state_manager.add_discovery(new_discovery['name'], store_pos, obj_type='store')
-                current_plan = runner.run_planner("domain.pddl", "problem.pddl")
-            elif ALGORITHM_MODE == 'C':
-                # חכם - שואל LLM
-                analysis = reasoner.analyze_observation(new_discovery['name'])
-                if analysis.get('sells_milk'):
-                    decision = reasoner.decide_replan(context, analysis)
-                    if decision.get('replan_needed'):
-                        # עדכון מצב ותכנון מחדש
-                        state_manager.add_discovery(...)
-                        current_plan = runner.run_planner(...)
+    logger.info("EXPERIMENT", f"Algorithm: {ALGORITHM_MODE}, Scenario: {SCENARIO_ID}")
 ```
 
-**יכולות:**
-- הרצת כל אחד מ-4 האלגוריתמים
-- טעינת תרחישים שונים
-- לולאת ביצוע עם תגליות, החלטות, תכנון מחדש
-- לוגינג מקיף ותיעוד תוצאות
-
----
-
-### **🏠 `custom_env.py` - הסביבה הווירטואלית**
-
-**תפקיד:** יצירת עולם וירטואלי מבוסס MiniGrid עם חנויות ואובייקטים.
-
-**מחלקות עיקריות:**
-```python
-class RandomizedMazeEnv(MiniGridEnv):
-    def __init__(self, width=20, height=20, wall_density=0.2,
-                 sensor_radius=5, render_mode='rgb_array', scenario=None):
-        # אתחול סביבה עם תמיכה בתרחישים
-        self.scenario = scenario  # תרחיש נבחר או None לרנדומלי
-
-    def _gen_grid(self, width, height):
-        # יצירת מבוך עם קירות וחנויות
-        self.grid.wall_rect(0, 0, width, height)
-
-        # הוספת אובייקט התרחיש (אם קיים)
-        if self.scenario:
-            surprise_obj = self.scenario['surprise_object']
-            ball = Ball(surprise_obj.get('color', 'green'))
-            ball.name = surprise_obj['name']
-            self.grid.set(surprise_obj['position'][0], surprise_obj['position'][1], ball)
-
-        # הוספת חנויות אקראיות מהמסד
-        self._place_random_stores_from_database(victory_pos)
+- `custom_env.py`: MiniGrid environment generation and scenario object placement.
+```
+surprise_ball = Ball(color)
+surprise_ball.name = surprise_obj['name']
+if price is not None and price > 0:
+    surprise_ball.price = price
+self.grid.set(*obj_pos, surprise_ball)
 ```
 
-**יכולות:**
-- יצירת מבוך 20x20 עם קירות בצפיפות 20%
-- הצבת חנויות אמיתיות עם צבעים ותכונות
-- תמיכה בתרחישים קבועים או רנדומליים
-- ממשק Gymnasium סטנדרטי
-
----
-
-### **⚙️ `simulation_engine.py` - מנוע התרגום**
-
-**תפקיד:** מתרגם בין תכנון PDDL לביצוע בסביבה, מטפל בתגליות חדשות.
-
-**פונקציות מרכזיות:**
-```python
-class FastDownwardRunner:
-    def run_planner(self, domain_file: str, problem_file: str) -> List[str]:
-        # כרגע מחזיר נתיב קשיח: ימינה ל-18, למעלה ל-18
-        actions = []
-        for col in range(1, 18):
-            actions.append(f"drive loc_{col}_1 loc_{col+1}_1")
-        for row in range(1, 18):
-            actions.append(f"drive loc_18_{row} loc_18_{row+1}")
-        actions.append("buy milk victory 4.0")
-        return actions
-
-class StateTranslator:
-    def get_micro_action(self, pddl_action: str, mock_agent=None) -> Tuple[int, bool]:
-        # מתרגם פעולות PDDL לפעולות MiniGrid
-        if action_name == "drive":
-            # חישוב כיוון התנועה הנדרש
-            if dx > 0 and agent_dir == 0:  # פונה ימינה לכיוון המטרה
-                return 2, False  # forward - להמשיך
-            elif agent_dir != 0:
-                return 0, False  # turn right קודם
+- `simulation_engine.py`: PDDL action translation and discovery detection.
+```
+if use_semantic and hasattr(env, 'get_semantic_observation'):
+    for obj in env.get_semantic_observation():
+        entity_name = obj.get('name')
+        pos = obj.get('position')
+        if entity_name and pos:
+            return obj
 ```
 
-**יכולות:**
-- תרגום פעולות PDDL לפעולות MiniGrid (0=שמאלה, 1=ימינה, 2=קדימה)
-- זיהוי תגליות חדשות בטווח החיישנים
-- ניהול זיכרון ויזואלי (מה כבר נראה)
-
----
-
-### **🧠 `llm_reasoner.py` - המוח החושב**
-
-**תפקיד:** משתמש ב-Google Gemini כדי לנתח אובייקטים ולהחליט על תכנון מחדש.
-
-**פונקציות מרכזיות:**
-```python
-class LLMReasoner:
-    def analyze_observation(self, discovery_name: str) -> Dict:
-        """מנתח מה האובייקט ומחירו"""
-        prompt = f"""
-        ROLE: You are an AI Agent operating in Israel...
-
-        TASK: IDENTIFY AND ANALYZE
-        1. What is "{discovery_name}"?
-        2. Does it sell milk? (true/false)
-        3. If it sells milk, estimate price vs Victory (4.00 NIS)
-
-        JSON RESPONSE FORMAT: {{"type": "...", "sells_milk": true/false, "estimated_price": 2.5}}
-        """
-        response = self.model.generate_content(prompt)
-        return json.loads(response.text)
-
-    def decide_replan(self, context: Dict, analysis_result: Dict) -> Dict:
-        """מחליט האם לתכנן מחדש"""
-        prompt = f"""
-        ROLE: You are a strategic decision-making agent...
-
-        CURRENT SITUATION:
-        - Current destination: Victory Supermarket (4.00 NIS)
-        - New option: {analysis_result['type']} ({analysis_result['estimated_price']} NIS)
-        - Detour distance: {context['walking_distance_to_new_store']} steps
-
-        JSON RESPONSE: {{"replan_needed": true/false, "reasoning": "..."}}
-        """
+- `llm_reasoner.py`: LLM-based observation analysis and replanning decisions.
+```
+prompt = f"""
+ROLE: You are an AI Agent operating in Israel.
+OBSERVATION: You pass by a building labeled: "{discovery_name}"
+YOUR TASK: IDENTIFY AND ANALYZE
+"""
 ```
 
-**יכולות:**
-- ניתוח סמנטי של שמות חנויות בעברית/עברית
-- החלטות אסטרטגיות מבוססות עלות-תועלת
-- שימוש ב-Gemini API עם prompts מותאמים לישראל
-
----
-
-### **📋 `scenarios.py` - הגדרת התרחישים**
-
-**תפקיד:** מגדיר 5 תרחישי בדיקה שונים לבחינת האלגוריתמים.
-
-**תוכן מרכזי:**
-```python
-SCENARIOS = {
-    "SCENARIO_1": {
-        "name": "Irrelevant Object",
-        "description": "Object is 'Old Tree in Jerusalem Forest'",
-        "start_pos": (1, 1),
-        "victory_pos": (18, 18),
-        "surprise_object": {
-            "name": "old_tree_jerusalem_forest",
-            "position": (3, 2),
-            "true_price": None,  # לא חנות
-            "type": "nature",
-            "color": "green"
-        }
-    },
-    # SCENARIO_2: קצביית משה (רלוונטי אבל לא מוכר חלב)
-    # SCENARIO_3: רמי לוי (זול אבל רחוק)
-    # SCENARIO_4: מגה בולדוג (זול וקרוב - "המתוק")
-}
+- `pddl_patcher.py`: Safe injection of dynamic predicates into PDDL.
+```
+new_pred = f"(at_agent agent loc_{agent_pos[0]}_{agent_pos[1]})"
+if self.inject_dynamic_state([new_pred]):
+    return True
 ```
 
----
-
-### **🏪 `stores_database.py` - מסד החנויות האמיתי**
-
-**תפקיד:** מכיל מידע על 16 חנויות אמיתיות בישראל.
-
-**דוגמה למבנה:**
-```python
-STORES_DATABASE = {
-    "starbucks_tel_aviv": {
-        "type": "coffee_shop",
-        "sells_milk": False,
-        "category": "beverages",
-        "description": "Starbucks at Tel Aviv Central Station",
-        "price_estimate": 0,
-        "color": "purple"
-    },
-    "rami_levy_jerusalem": {
-        "type": "supermarket",
-        "sells_milk": True,
-        "price_estimate": 2.5,  # זול
-        "color": "red"
-    },
-    "victory_tel_aviv": {
-        "type": "supermarket",
-        "sells_milk": True,
-        "price_estimate": 4.0,  # בסיס
-        "color": "blue"
-    }
-}
+- `results_logger.py`: CSV logging for experiment outcomes and metrics.
 ```
-
-**קטגוריות:**
-- 🛒 **3 רשתות סופר:** רמי לוי, ויקטורי, מגה בולדוג
-- ☕ **2 חנויות שלא מוכרות חלב:** סטארבאקס, קצביית משה
-- 🏠 **11 חנויות נוספות:** נייק, H&M, סופר-פארם, וכו'
-
----
-
-### **💾 `state_manager.py` - מנהל המצב**
-
-**תפקיד:** מנהל את הידע של הסוכן על העולם בזיכרון.
-
-**פונקציות מרכזיות:**
-```python
-class StateManager:
-    def add_discovery(self, name, pos, obj_type='store', **properties):
-        """מוסיף אובייקט חדש למצב"""
-        self.discovered_objects[name] = {
-            'pos': pos,
-            'type': obj_type,
-            'properties': properties
-        }
-
-        # הוספת פרדיקטים PDDL
-        self.dynamic_facts.add(f"(at {name} loc_{pos[0]}_{pos[1]})")
-
-        if obj_type == 'store' and 'price' in properties:
-            self.dynamic_facts.add(f"(selling {name} milk)")
-            self.dynamic_facts.add(f"(= (item-price milk {name}) {properties['price']})")
-        elif obj_type == 'obstacle':
-            self.dynamic_facts.add(f"(blocked loc_{pos[0]}_{pos[1]})")
+writer.writerow([
+    'timestamp', 'scenario_id', 'algorithm_mode',
+    'total_steps', 'total_cost', 'compute_time_seconds',
+    'replans_count', 'llm_calls_count', 'true_final_price',
+    'victory_reached', 'termination_reason'
+])
 ```
-
-**יכולות:**
-- ניהול מצב דינמי בזיכרון
-- הוספת פרדיקטים PDDL בהתאם לסוג האובייקט
-- סנכרון עם קבצי PDDL לפני תכנון מחדש
-
----
-
-### **🔧 `pddl_patcher.py` - מתקן קבצי PDDL**
-
-**תפקיד:** מעדכן בבטחה קבצי PDDL עם אובייקטים ותכונות חדשות.
-
-**פונקציות מרכזיות:**
-```python
-class PDDLPatcher:
-    def add_new_object(self, obj_name: str, obj_type: str, predicates: List[str]) -> bool:
-        """מוסיף אובייקט חדש ל-PDDL בצורה בטוחה"""
-        # קורא קובץ קיים
-        with open(self.pddl_file_path, 'r') as f:
-            content = f.read()
-
-        # בודק אם האובייקט כבר קיים
-        if obj_name.lower() in content.lower():
-            return True  # כבר קיים
-
-        # מוסיף אובייקט חדש לסעיף :objects
-        # ומוסיף פרדיקטים לסעיף :init
-        return self._inject_object_and_predicates(content, obj_name, obj_type, predicates)
-```
-
----
-
-### **📊 `results_logger.py` - מתעד תוצאות**
-
-**תפקיד:** מתעד תוצאות ניסויים לקובץ CSV לניתוח.
-
-**פונקציות מרכזיות:**
-```python
-class ResultsLogger:
-    def log_experiment_result(self, scenario_id: str, algorithm_mode: str,
-                            total_steps: int, total_cost: float,
-                            compute_time: float, replans_count: int,
-                            true_final_price: float, victory_reached: bool,
-                            termination_reason: str):
-        """מתעד תוצאת ניסוי בודד"""
-
-    def start_experiment_timer(self):
-        """מתחיל מדידת זמן לניסוי"""
-```
-
-**פלט CSV:**
-```csv
-timestamp,scenario_id,algorithm_mode,total_steps,total_cost,compute_time_seconds,replans_count,true_final_price,victory_reached,termination_reason
-```
-
----
-
-### **📝 `utils/logger.py` - מערכת הלוגינג**
-
-**תפקיד:** מערכת לוגינג מרכזית עם פלט לקונסול וקובץ.
-
-**יכולות:**
-- לוגינג מובנה לפי קומפוננטות: `[TIMESTAMP] [COMPONENT] [LEVEL] Message`
-- פלט לקונסול (INFO ומעלה) וקובץ (DEBUG ומעלה)
-- רוטציה אוטומטית של קבצי לוג
-- חיפוש וניתוח קל
-
----
-
-## 🚀 **איך להריץ את המערכת**
-
-### **📋 דרישות מקדימות**
-```bash
-# התקנת תלויות
-pip install google-generativeai matplotlib seaborn pandas numpy gymnasium minigrid
-
-# הגדרת מפתח Gemini (אופציונלי - ללא מפתח משתמש ב-mock mode)
-export GOOGLE_API_KEY="your-gemini-api-key"
-```
-
-### **🎯 הרצות שונות**
-
-#### **1. הרצת אלגוריתם בודד על תרחיש בודד**
-```bash
-# אלגוריתם חכם על עץ ירושלים
-ALGORITHM_MODE=C SCENARIO_ID=SCENARIO_1 python run_live_dashboard.py
-
-# אלגוריתם עיוור על מגה בולדוג
-ALGORITHM_MODE=A SCENARIO_ID=SCENARIO_4 python run_live_dashboard.py
-```
-
-#### **2. הרצת כל השילובים (16 ניסויים)**
-```bash
-# מריץ את כל האלגוריתמים על כל התרחישים
-./run_batch_experiments.sh
-```
-
-**מה זה עושה:**
-- מריץ A על כל התרחישים
-- מריץ B על כל התרחישים
-- מריץ C על כל התרחישים
-- מריץ D על כל התרחישים
-- שומר הכל ל-`experiment_results.csv`
-
-#### **3. הרצת אלגוריתם בודד לבודק חיצוני**
-```bash
-# מאפשר לבודק חיצוני להריץ אלגוריתם אחד על כל התרחישים
-python run_single_algorithm.py
-# בוחר אלגוריתם (A/B/C/D) ומקבל תוצאות נקיות
-```
-
-#### **4. יצירת גרפים וניתוח**
-```bash
-# יוצר גרפים השוואתיים מתוצאות הניסויים
-python generate_experiment_graphs.py
-```
-
-**גרפים שנוצרים:**
-- השוואת עלויות לפי תרחיש ואלגוריתם
-- השוואת זמני חישוב
-- ניתוח סטטטיסטי של ביצועים
-
-### **🎮 דוגמה להרצה**
-
-```bash
-# הרצת אלגוריתם חכם על תרחיש "המתוק"
-ALGORITHM_MODE=C SCENARIO_ID=SCENARIO_4 python run_live_dashboard.py
-```
-
-**פלט לדוגמה:**
-```
-[EXPERIMENT] Algorithm: C, Scenario: SCENARIO_4
-[SCENARIO] Loaded: The Sweet Spot
-[SCENARIO] Surprise Object: mega_bulldog_tlv at (3, 3)
-[PLANNER] Initial plan generated: 35 actions
-[EXECUTION] COMPLETED ACTION: drive loc_1_1 loc_2_1
-[PERCEPTION] NEW DISCOVERY: mega_bulldog_tlv at (3, 3)
-[ALGORITHM_C] Smart Agent: Analyzing relevance and making strategic decision
-[LLM] Analyzing: mega_bulldog_tlv...
-[ANALYSIS] Type: supermarket, Sells Milk: True, Estimated Price: $3.20
-[DECISION] Strategic Decision: REPLAN
-[REPLAN] Full replan successful: 12 actions
-[EXECUTION] COMPLETED ACTION: buy milk mega_bulldog_tlv 3.2
-[VICTORY] Agent reached victory position at step 15
-[LOGGING] Results saved to experiment_results.csv
-```
-
----
-
-## 📊 **מדדי הביצועים**
-
-המערכת מודדת 8 מדדים מרכזיים:
-
-| מדד | תיאור | יחידה |
-|-----|--------|-------|
-| `total_steps` | מספר צעדים עד סיום | שלבי ביצוע |
-| `total_cost` | עלות כוללת (שלבים + קנייה) | דולר |
-| `compute_time_seconds` | זמן חישוב כולל | שניות |
-| `replans_count` | מספר תכנונים מחדש | מספר |
-| `true_final_price` | מחיר החלב בפועל | דולר |
-| `victory_reached` | האם הגיע ליעד | True/False |
-| `termination_reason` | סיבת סיום | מחרוזת |
-
----
-
-## 📊 **תוצאות הניסוי**
-
-> **הערה**: הטבלאות להלן משקפות ריצה אחת לכל אחד מ-5 התרחישים (Scenario-only, seed קבוע). המטרה היא להציג תוצאות קונסיסטנטיות עם ההיגיון של כל אלגוריתם.
-
-### **סיכום לפי אלגוריתם (ממוצע על 5 תרחישים)**
-
-#### **אלגוריתם A - עיוור (Blind)**
-- **צעדים ממוצעים**: 28.6
-- **עלות ממוצעת**: $28.60
-- **זמן חישוב ממוצע**: 6.0 שניות
-- **תכנונים מחדש ממוצעים**: 0.0
-- **קריאות LLM**: 0
-- **ניסויים מוצלחים**: 5/5 (100%)
-
-#### **אלגוריתם B - מתכנן תמיד (Always Replan)**
-- **צעדים ממוצעים**: 19.2
-- **עלות ממוצעת**: $19.20
-- **זמן חישוב ממוצע**: 3.9 שניות
-- **תכנונים מחדש ממוצעים**: 2.0
-- **קריאות LLM**: 0
-- **ניסויים מוצלחים**: 5/5 (100%)
-
-#### **אלגוריתם C - חכם (Smart, LLM-Guided)**
-- **צעדים ממוצעים**: 21.6
-- **עלות ממוצעת**: $21.60
-- **זמן חישוב ממוצע**: 4.6 שניות
-- **תכנונים מחדש ממוצעים**: 0.6
-- **קריאות LLM**: 6 (סה״כ על כל ה-batch)
-- **ניסויים מוצלחים**: 5/5 (100%)
-
-#### **אלגוריתם D - מתמטי (Heuristic)**
-- **צעדים ממוצעים**: 25.2
-- **עלות ממוצעת**: $25.20
-- **זמן חישוב ממוצע**: 5.3 שניות
-- **תכנונים מחדש ממוצעים**: 0.0
-- **קריאות LLM**: 0
-- **ניסויים מוצלחים**: 5/5 (100%)
-
-### **טבלת השוואה**
-
-| אלגוריתם | ניסויים | צעדים ממוצעים | עלות ממוצעת | זמן חישוב | תכנונים מחדש | קריאות LLM | הצלחות |
-|----------|---------|----------------|--------------|------------|---------------|-------------|---------|
-| **A** | 5 | 28.6 | $28.60 | 6.0s | 0.0 | 0 | 5/5 (100%) |
-| **B** | 5 | 19.2 | $19.20 | 3.9s | 2.0 | 0 | 5/5 (100%) |
-| **C** | 5 | 21.6 | $21.60 | 4.6s | 0.6 | 6 | 5/5 (100%) |
-| **D** | 5 | 25.2 | $25.20 | 5.3s | 0.0 | 0 | 5/5 (100%) |
-
-### **ניתוח התוצאות**
-
-- **B (מתכנן תמיד)**: הכי מהיר עקבית, אבל מבצע תכנון מחדש בכל תרחיש גם כשלא באמת צריך.
-- **C (חכם)**: שני במהירות, משתמש ב-LLM (6 קריאות) כדי לחסוך תכנונים מחדש ועדיין שומר על ביצועים קרובים ל-B.
-- **D (יוריסטי)**: שמרני, מפספס הזדמנויות כשיש דטור קטן אבל חיסכון גדול במחיר.
-- **A (עיוור)**: בסיס יציב אך איטי — לא מגיב לתגליות ולכן מסיים אחרון.
-
-**ממצאים מרכזיים:**
-- ✅ דירוג מהירות ברור: **B > C > D > A**
-- ✅ אלגוריתם C השתמש הכי הרבה ב-LLM (6) **ועדיין חסך תכנונים מחדש** מול B
-- ✅ C מנצח את D במצבים של "מעט יותר רחוק אבל הרבה יותר זול"
-- ✅ A נשאר עקבי כ-baseline פשוט ואיטי
-
-### **יתרון אלגוריתם C (חכם) על אלגוריתם B (מתכנן תמיד)**
-
-**התנהגות אלגוריתם B:**
-- ✅ מתכנן מחדש על **100% מהחנויות** שמתגלות (ללא קשר למחיר/מרחק)
-- ✅ מהיר מאוד אבל מבזבז תכנונים מחדש
-
-**התנהגות אלגוריתם C:**
-- 🧠 משתמש ב-LLM כדי להחליט אם לתכנן מחדש על כל חנות
-- ✅ מתכנן מחדש רק כשיש ערך אסטרטגי אמיתי
-- ✅ שומר על מהירות גבוהה תוך צמצום תכנונים מיותרים
-
-**דוגמה בולטת (SCENARIO_3):**
-- החנות מעט רחוקה יותר אבל **זולה מאוד**
-- **C** מזהה שזה משתלם ונוסע → מנצח את **D** שנשאר עם Victory
-- **B** נוסע תמיד, אבל משלם על עודף תכנונים מחדש לאורך כל התרחישים
-
----
-
-## 🔬 **ממצאי המחקר**
-
-### **השוואת ביצועים צפויה:**
-
-| תרחיש | אלגוריתם A (עיוור) | אלגוריתם B (טיפש) | אלגוריתם C (חכם) | אלגוריתם D (מתמטי) |
-|--------|-------------------|-------------------|------------------|-------------------|
-| **SCENARIO_1** (עץ) | מסיים אחרון | מהיר אבל מיותר | מהיר עם סינון | איטי ושמרני |
-| **SCENARIO_2** (קצב) | מסיים אחרון | מהיר אבל מיותר | מסנן נכון | שמרני |
-| **SCENARIO_3** (זול+דטור קטן) | מסיים אחרון | הכי מהיר | מתכנן נכון ומנצח את D | מפספס הזדמנות |
-| **SCENARIO_4** (קרוב) | מסיים אחרון | הכי מהיר | כמעט כמו B | שמרני מדי |
-
-### **מסקנות מרכזיות:**
-- ✅ **אלגוריתם C (חכם)**: מאזן בין מהירות לחיסכון בתכנונים מחדש
-- ✅ **אלגוריתם B (מתכנן תמיד)**: הכי מהיר, אבל לא חסכוני בהחלטות
-- ✅ **אלגוריתם D (מתמטי)**: פשרה שמפספסת דילים חכמים
-- ✅ **אלגוריתם A (עיוור)**: baseline איטי אך עקבי
-
----
-
-## 🧾 **איומים על תוקף (Threats to Validity)**
-
-- **תוקף חיצוני**: התוצאות מבוססות על סביבה סימולטיבית ומספר תרחישים קטן.
-- **תוקף מבני**: מדדי “צעדים/זמן” הם פרוקסי ליעילות אמיתית בעולם פיזי.
-- **תוקף סטטיסטי**: הבאצ’ האחרון משתמש בריצה אחת לכל תרחיש — ללא סטיות תקן.
-- **תלות ב‑LLM**: תוצאות יכולות להשתנות עם מודל/גרסה/פרומפט.
-
-## 🔁 **שחזור ניסויים (Reproducibility)**
-
-```bash
-# באצ' מלא על 5 תרחישים עם seed קבוע
-./run_batch_experiments.sh
-
-# הרצה של אלגוריתם בודד על כל התרחישים
-python run_single_algorithm.py
-```
-
-**פרמטרים חשובים לשחזור:**
-- `SCENARIO_ONLY=true` כדי להסיר רעש מחנויות רנדומליות
-- `SEED` לפי הסקריפט (`run_batch_experiments.sh`)
-- `SENSOR_RADIUS` ו־`WALL_DENSITY` נשמרים קבועים בבאצ'
-
-## 🏗️ **ארכיטקטורה טכנית**
-
-### **LLM-Modulo Architecture**
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   MiniGrid      │ -> │   Python Core   │ -> │     LLM         │
-│   Environment   │    │   (Planning)    │    │   (Reasoning)   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-        ↑                       ↑                       ↑
-    Visual Input        Technical Logic        Strategic AI
-```
-
-- **LLM Role**: החלטות אסטרטגיות ברמה גבוהה (JSON output בלבד)
-- **Python Role**: מניפולציה טכנית של PDDL ותכנון
-- **תוצאה**: מערכת רובסטית עם הפרדה ברורה
-
-### **זרימת הנתונים המלאה**
-```
-1. סוכן זז בסביבה -> 2. מזהה אובייקט חדש -> 3. LLM מנתח את האובייקט
-     ↓                        ↓                        ↓
-4. החלטה אסטרטגית -> 5. עדכון מצב PDDL -> 6. תכנון מחדש
-     ↓                        ↓                        ↓
-7. תרגום לפעולות -> 8. ביצוע MiniGrid -> 9. לוגינג וניתוח
-```
-
----
-
-## 📁 **מבנה הקבצים המלא**
-
-```
-/Users/ronberger/Desktop/replaning/
-├── run_live_dashboard.py      # 🎯 מנהל הסימולציה הראשי
-├── custom_env.py              # 🏠 הסביבה הווירטואלית (MiniGrid)
-├── simulation_engine.py       # ⚙️ מנוע התרגום PDDL->MiniGrid
-├── llm_reasoner.py            # 🧠 המנתח החכם (Gemini API)
-├── scenarios.py               # 📋 הגדרת 4 התרחישים
-├── stores_database.py         # 🏪 מסד 16 חנויות אמיתיות
-├── state_manager.py           # 💾 מנהל הידע הדינמי
-├── pddl_patcher.py            # 🔧 מתקן קבצי PDDL
-├── results_logger.py          # 📊 מתעד תוצאות ל-CSV
-├── utils/logger.py            # 📝 מערכת לוגינג מרכזית
-├── run_batch_experiments.sh   # 🔄 הרצה אוטומטית של 16 ניסויים
-├── run_single_algorithm.py    # 👤 הרצת אלגוריתם בודד לבודק חיצוני
-├── generate_experiment_graphs.py # 📈 יצירת גרפים וניתוח
-├── domain.pddl                # 🎯 הגדרת תחום התכנון
-├── problem_initial.pddl       # 🎪 בעיית ההתחלה
-├── experiment_results.csv     # 📊 תוצאות הניסויים
-├── trace.log                  # 📋 לוג מפורט של הרצות
-└── README.md                  # 📖 מסמך זה
-```
-
----
-
-## 🎯 **השפעה מחקרית**
-
-עבודה זו מדגימה ש**LLM יכול לשמש כיועץ אסטרטגי יעיל במערכות תכנון אוטונומיות**, מקבל החלטות חכמות מתי תכנון מחדש כלכלי מוצדק.
-
-המערכת מספקת:
-- **🎯 דיוק מדעי**: ניסויים מבוקרים עם תוצאות מדידות
-- **🏭 מוכנות לייצור**: יכולות תצפית והדבגה מלאות
-- **🔍 שקיפות מחקרית**: לוגים מלאים, ויזואליזציות, מתודולוגיה חוזרת
-
-## 🤝 **איך לתרום**
-
-1. **הרץ ניסויים** עם פרמטרים שונים
-2. **השווה אלגוריתמים** על תרחישים חדשים
-3. **הרחב את מסד החנויות** עם ערים/מדינות נוספות
-4. **שפר את הלוגיקה** של תרגום PDDL->MiniGrid
-5. **הוסף מדדי ביצועים** חדשים
-
----
-
-**🚀 הכלי הזה מאפשר לך לראות בדיוק איך AI חושב, מגלה ומתאים את עצמו בזמן אמת!** 🎮✨
-
-# 🔬 Latest Batch Results (run_batch_experiments.sh)
-*(Single run per scenario/algorithm; shared seed per scenario. Scenario-only, no random stores, full sensor radius.)*
-
-## ✅ What Each Scenario Tests
-- **SCENARIO_1**: irrelevant noise (object that is not a milk store)
-- **SCENARIO_2**: relevant-but-wrong store (butcher shop, no milk)
-- **SCENARIO_3**: cheap but far (tests cost–distance tradeoff)
-- **SCENARIO_4**: close + reasonable price (should replan)
-- **SCENARIO_5**: expensive trap (should ignore)
-
-## 📑 Results by Scenario
-
-### SCENARIO_1
-| Algorithm | Steps | Cost | Time (s) | Replans | LLM Calls | Final Price | Victory |
-|-----------|-------|------|----------|---------|-----------|-------------|---------|
-| A | 37 | 37.00 | 5.483 | 0 | 0 | 4.00 | True |
-| B | 37 | 37.00 | 5.434 | 0 | 0 | 4.00 | True |
-| C | 37 | 37.00 | 5.831 | 0 | 0 | 4.00 | True |
-| D | 37 | 37.00 | 5.454 | 0 | 0 | 4.00 | True |
-
-### SCENARIO_2
-| Algorithm | Steps | Cost | Time (s) | Replans | LLM Calls | Final Price | Victory |
-|-----------|-------|------|----------|---------|-----------|-------------|---------|
-| A | 37 | 37.00 | 5.908 | 0 | 0 | 4.00 | True |
-| B | 37 | 37.00 | 5.379 | 0 | 0 | 4.00 | True |
-| C | 37 | 37.00 | 5.505 | 0 | 0 | 4.00 | True |
-| D | 37 | 37.00 | 5.874 | 0 | 0 | 4.00 | True |
-
-### SCENARIO_3
-| Algorithm | Steps | Cost | Time (s) | Replans | LLM Calls | Final Price | Victory |
-|-----------|-------|------|----------|---------|-----------|-------------|---------|
-| A | 37 | 37.00 | 5.557 | 0 | 0 | 4.00 | True |
-| B | 16 | 16.00 | 3.702 | 1 | 0 | 2.50 | True |
-| C | 16 | 16.00 | 4.169 | 1 | 0 | 2.50 | True |
-| D | 37 | 37.00 | 5.475 | 0 | 0 | 4.00 | True |
-
-### SCENARIO_4
-| Algorithm | Steps | Cost | Time (s) | Replans | LLM Calls | Final Price | Victory |
-|-----------|-------|------|----------|---------|-----------|-------------|---------|
-| A | 37 | 37.00 | 5.552 | 0 | 0 | 4.00 | True |
-| B | 6 | 6.00 | 2.406 | 1 | 0 | 3.50 | True |
-| C | 6 | 6.00 | 2.393 | 1 | 0 | 3.50 | True |
-| D | 37 | 37.00 | 5.472 | 0 | 0 | 4.00 | True |
-
-### SCENARIO_5
-| Algorithm | Steps | Cost | Time (s) | Replans | LLM Calls | Final Price | Victory |
-|-----------|-------|------|----------|---------|-----------|-------------|---------|
-| A | 21 | 21.00 | 4.043 | 0 | 0 | 4.00 | True |
-| B | 10 | 10.00 | 3.567 | 1 | 0 | 12.00 | True |
-| C | 21 | 21.00 | 3.780 | 0 | 0 | 4.00 | True |
-| D | 21 | 21.00 | 4.034 | 0 | 0 | 4.00 | True |
