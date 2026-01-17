@@ -26,7 +26,7 @@ Can a language model serve as an effective strategic layer that decides when to 
 | **A** | Blind | Ignores discoveries; follows initial plan | None |
 | **B** | Always Replan | Replans on every new observation; uses classification only | Low (1 call/observation) |
 | **C** | Smart (LLM-Guided) | Uses LLM to decide if replanning is worthwhile | Medium (2 calls/observation) |
-| **D** | Heuristic | Mirrors B unless the observation is very far, then skips replanning | Low (1 call/observation) |
+| **D** | Heuristic | Mirrors B, but replans only when the distance from the current goal to the observation exceeds 10 | Low (1 call/observation) |
 
 Note: LLM calls are counted even in mock mode. Algorithm A never calls the LLM.
 
@@ -36,10 +36,10 @@ Each scenario contains a small, fixed set of “surprise objects” and no rando
 | Scenario | Surprise Object | Milk Price | Objects | Expected Outcome |
 |----------|------------------|------------|---------|------------------|
 | **SCENARIO_1** | `old_tree_jerusalem_forest` | N/A | 1 | B/D replan once; C ignores |
-| **SCENARIO_2** | 3 butcher delis (incl. `moshe_butcher_rehovot`) | N/A | 3 | B/D replan repeatedly; C replans once then ignores |
-| **SCENARIO_3** | `rami_levy_jerusalem` | 3.0 | 1 | B/D fastest; C replans; D mirrors B |
-| **SCENARIO_4** | `mega_bulldog_tlv` | 3.5 | 1 | C best total cost; B/D replan more |
-| **SCENARIO_5** | `am_pm_express` | 12.0 | 1 | B/D buy expensive milk; C ignores |
+| **SCENARIO_2** | 3 butcher delis (incl. `moshe_butcher_rehovot`) | N/A | 3 | B replans repeatedly; D skips close delis; C replans once then ignores |
+| **SCENARIO_3** | `rami_levy_jerusalem` | 3.0 | 1 | B/C take the same path; D skips because distance ≤ 10 |
+| **SCENARIO_4** | `mega_bulldog_tlv` | 3.5 | 1 | B/C take same path; D skips because distance ≤ 10 |
+| **SCENARIO_5** | `am_pm_express` | 12.0 | 1 | B buys expensive milk; C/D ignore |
 
 ### Per-Scenario Expectations
 **SCENARIO_1 (Noise)**  
@@ -47,20 +47,21 @@ Each scenario contains a small, fixed set of “surprise objects” and no rando
 - C analyzes and rejects; A ignores entirely.
 
 **SCENARIO_2 (Wrong Category, 3 delis)**  
-- B/D: Replans on each deli, causing high overhead.  
+- B: Replans on each deli, causing high overhead.  
+- D: Skips close delis and stays on the far path.  
 - C: Replans once early, then ignores remaining delis.
 
 **SCENARIO_3 (Cheap but Detour, distance gap = 7)**  
-- B/D: Fastest due to immediate replan.  
-- C: Replans because price is 3 vs Victory 5.
+- B/C: Take the same path (non-expensive store).  
+- D: Skips because distance ≤ 10.
 
 **SCENARIO_4 (Sweet Spot)**  
-- C: Best total cost with fewer replans.  
-- B/D: Replan more and waste planning effort.
+- B/C: Same path; C uses more reasoning overhead.  
+- D: Skips because distance ≤ 10 and follows the far path.
 
 **SCENARIO_5 (Expensive Trap)**  
-- B/D: Replan and buy expensive milk.  
-- C: Rejects and keeps Victory.
+- B: Replans and buys expensive milk.  
+- C/D: Reject and keep Victory.
 
 ## System Architecture
 ```
@@ -111,53 +112,53 @@ All values are averages over 5 runs.
 |------|-------|------------|------------|---------|-----------|--------------|
 | A | 37 | 4.0 | 41.0 | 0.0 | 0 | 3.4 |
 | B | 37 | 4.0 | 41.0 | 1.0 | 1 | 4.0 |
-| C | 37 | 4.0 | 41.0 | 0.0 | 2 | 4.8 |
-| D | 37 | 4.0 | 41.0 | 1.0 | 1 | 4.1 |
+| C | 37 | 4.0 | 41.0 | 0.0 | 2 | 4.6 |
+| D | 37 | 4.0 | 41.0 | 1.0 | 1 | 3.9 |
 
 ### SCENARIO_2 (Wrong Category, 3 delis)
 | Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
 |------|-------|------------|------------|---------|-----------|--------------|
 | A | 37 | 4.0 | 41.0 | 0.0 | 0 | 3.5 |
-| B | 41 | 4.0 | 45.0 | 3.0 | 1 | 4.9 |
-| C | 39 | 4.0 | 43.0 | 1.0 | 2 | 4.2 |
-| D | 41 | 4.0 | 45.0 | 3.0 | 1 | 4.8 |
+| B | 41 | 4.0 | 45.0 | 3.0 | 3 | 4.9 |
+| C | 41 | 4.0 | 45.0 | 1.0 | 6 | 5.6 |
+| D | 48 | 4.0 | 52.0 | 0.0 | 3 | 4.6 |
 
 ### SCENARIO_3 (Cheap but Detour, price 3 vs 5)
 | Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
 |------|-------|------------|------------|---------|-----------|--------------|
 | A | 37 | 5.0 | 42.0 | 0.0 | 0 | 4.6 |
 | B | 18 | 3.0 | 21.0 | 1.0 | 1 | 3.2 |
-| C | 19 | 3.0 | 22.0 | 1.0 | 2 | 3.8 |
-| D | 18 | 3.0 | 21.0 | 1.0 | 1 | 3.3 |
+| C | 18 | 3.0 | 21.0 | 1.0 | 2 | 3.8 |
+| D | 26 | 5.0 | 31.0 | 0.0 | 1 | 3.5 |
 
 ### SCENARIO_4 (Sweet Spot)
 | Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
 |------|-------|------------|------------|---------|-----------|--------------|
 | A | 37 | 4.0 | 41.0 | 0.0 | 0 | 4.7 |
 | B | 10 | 3.5 | 13.5 | 2.0 | 1 | 3.6 |
-| C | 8 | 3.5 | 11.5 | 1.0 | 2 | 3.9 |
-| D | 10 | 3.5 | 13.5 | 2.0 | 1 | 3.7 |
+| C | 10 | 3.5 | 13.5 | 2.0 | 2 | 4.1 |
+| D | 18 | 4.0 | 22.0 | 0.0 | 1 | 3.9 |
 
 ### SCENARIO_5 (Expensive Trap)
 | Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
 |------|-------|------------|------------|---------|-----------|--------------|
 | A | 21 | 4.0 | 25.0 | 0.0 | 0 | 3.9 |
 | B | 16 | 12.0 | 28.0 | 1.0 | 1 | 3.4 |
-| C | 20 | 4.0 | 24.0 | 0.0 | 2 | 3.7 |
-| D | 16 | 12.0 | 28.0 | 1.0 | 1 | 3.5 |
+| C | 21 | 4.0 | 25.0 | 0.0 | 2 | 3.9 |
+| D | 21 | 4.0 | 25.0 | 0.0 | 1 | 3.8 |
 
 ## Aggregate Summary (All Scenarios)
 | Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
 |------|-------|------------|------------|---------|-----------|--------------|
 | A | 33.8 | 4.2 | 38.0 | 0.0 | 0 | 4.0 |
-| B | 24.4 | 5.3 | 29.7 | 1.6 | 1 | 3.8 |
-| C | 24.6 | 3.7 | 28.3 | 0.6 | 2 | 4.1 |
-| D | 24.6 | 5.3 | 29.9 | 1.6 | 1 | 3.9 |
+| B | 24.4 | 5.3 | 29.7 | 1.6 | 1.4 | 3.8 |
+| C | 25.4 | 3.7 | 29.1 | 0.8 | 2.8 | 4.4 |
+| D | 30.0 | 4.2 | 34.2 | 0.2 | 1.4 | 3.9 |
 
 **Key Findings**
 - **Algorithm B is fastest** but incurs the most replans and fails in expensive-trap scenarios.  
 - **Algorithm C is the best overall**: strong total cost with fewer replans.  
-- **Algorithm D closely tracks B** unless the observation is very far.  
+- **Algorithm D tracks B except when observations are close (distance ≤ 10).**  
 - **Algorithm A is stable and fastest in pure-noise cases**, but worst overall.
 
 ## Additional Experiment: Random Store Competition (Default Settings)
