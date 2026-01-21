@@ -43,21 +43,19 @@ Each scenario contains a small, fixed set of “surprise objects” and no rando
 
 ### Per-Scenario Expectations
 **SCENARIO_1 (Noise)**  
-- B/D replan once on the observation (classification only).  
+- B/D replan on each  observation (causing high overhead).  
 - C analyzes and rejects; A ignores entirely.
 
 **SCENARIO_2 (Wrong Category, 3 delis)**  
-- B: Replans on each deli, causing high overhead.  
-- D: Skips close delis and stays on the far path.  
-- C: Replans once early, then ignores remaining delis.
+- B and D: Replan on tow delis, chosing the close and high price.  
+- C: chose cheap price.
 
 **SCENARIO_3 (Cheap but Detour, distance gap = 7)**  
 - B/C: Take the same path (non-expensive store).  
 - D: Skips because distance ≤ 10.
 
 **SCENARIO_4 (Sweet Spot)**  
-- B/C: Same path; C uses more reasoning overhead.  
-- D: Skips because distance ≤ 10 and follows the far path.
+- B/D: Same path; C uses llm reasoning to understand the store is unreachable.  
 
 **SCENARIO_5 (Expensive Trap)**  
 - B: Replans and buys expensive milk.  
@@ -113,31 +111,31 @@ All values are averages over 5 runs.
 | A | 37 | 4.0 | 41.0 | 0.0 | 0 | 3.4 |
 | B | 37 | 4.0 | 41.0 | 1.0 | 1 | 4.0 |
 | C | 37 | 4.0 | 41.0 | 0.0 | 2 | 4.6 |
-| D | 37 | 4.0 | 41.0 | 1.0 | 1.5 | 3.9 |
+| D | 37 | 4.0 | 41.0 | 1.0 | 1.2 | 3.9 |
 
 ### SCENARIO_2 (Wrong Category, 3 delis)
 | Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
 |------|-------|------------|------------|---------|-----------|--------------|
-| A | 37 | 4.0 | 41.0 | 0.0 | 0 | 3.5 |
-| B | 41 | 4.0 | 45.0 | 3.0 | 3 | 4.9 |
-| C | 41 | 4.0 | 45.0 | 1.0 | 6 | 5.6 |
-| D | 48 | 4.0 | 52.0 | 0.0 | 4 | 4.6 |
+| A | 48 | 4.0 | 52.0 | 0.0 | 0 | 3.5 |
+| B | 39 | 5.0 | 44.0 | 1.0 | 1 | 4.9 |
+| C | 41 | 2.0 | 43.0 | 1.0 | 2 | 5.6 |
+| D | 39 | 5.0 | 44.0 | 1.0 | 1 | 4.6 |
 
-### SCENARIO_3 (Cheap but Detour, price 3 vs 5)
+### SCENARIO_3 (Cheap and close to main goal, price 3 vs 5)
 | Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
 |------|-------|------------|------------|---------|-----------|--------------|
 | A | 37 | 5.0 | 42.0 | 0.0 | 0 | 4.6 |
 | B | 18 | 3.0 | 21.0 | 1.0 | 1 | 3.2 |
 | C | 18 | 3.0 | 21.0 | 1.0 | 2 | 3.8 |
-| D | 26 | 5.0 | 31.0 | 0.0 | 1.5 | 3.5 |
+| D | 26 | 5.0 | 31.0 | 0.0 | 1 | 3.5 |
 
-### SCENARIO_4 (Sweet Spot)
+### SCENARIO_4 (unreachable the llm know thet(deep search))
 | Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
 |------|-------|------------|------------|---------|-----------|--------------|
 | A | 37 | 4.0 | 41.0 | 0.0 | 0 | 4.7 |
-| B | 18 | 3.9 | 21.9 | 2.0 | 2 | 3.6 |
-| C | 18 | 3.5 | 21.5 | 2.0 | 4 | 4.9 |
-| D | 26 | 4.0 | 30.0 | 0.0 | 3 | 4.1 |
+| B | 32 | 3.9 | 21.9 | 2.0 | 3 | 3.6 |
+| C | 26 | 3.5 | 21.5 | 1 | 2 | 4.9 |
+| D | 32 | 4.0 | 30.0 | 2.0 | 3 | 4.1 |
 
 ### SCENARIO_5 (Expensive Trap)
 | Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
@@ -145,7 +143,7 @@ All values are averages over 5 runs.
 | A | 21 | 4.0 | 25.0 | 0.0 | 0 | 3.9 |
 | B | 16 | 12.0 | 28.0 | 1.0 | 1 | 3.4 |
 | C | 21 | 4.0 | 25.0 | 0.0 | 2 | 3.9 |
-| D | 21 | 4.0 | 25.0 | 0.0 | 1.5 | 3.8 |
+| D | 21 | 4.0 | 25.0 | 0.0 | 2 | 3.8 |
 
 ## Aggregate Summary (All Scenarios)
 | Algo | Steps | Milk Price | Total Cost | Replans | LLM Calls | Avg Time (s) |
@@ -196,33 +194,76 @@ Return JSON in this exact format:
 }
 ```
 
-**Prompt 2: Replanning Decision**
+**Prompt 2: Replanning Decision (Heuristic-Based)**
 ```
-Goal: buy milk as cheaply as possible with minimal time.
+### SYSTEM ROLE:
+You are an Expert Autonomous Strategic Planner specialized in Human Behavioral Heuristics.
+Your goal is to maximize Human Satisfaction based on dynamic real-world observations.
 
-Observation: {observation}
-Current plan length: {current_plan_steps}
-Distance to new store: {detour_steps}
-Victory price: {victory_price}
+### INPUT DATA (Provided by Robot):
+* **Current Mission:** {mission_description}
+* **User Context & Location:** {user_context}
+* **Original Plan:** {original_plan}
+* **NEW REAL-TIME OBSERVATION:** {new_observation}
 
-Task: Should we replan?
-Do a deep search on the observation relevant to the mission:
-price, congestion, product availability, and customer reviews.
-Also consider distance.
+### COGNITIVE PROCESS (Execute Step-by-Step):
 
-Explain both:
-1) Why to replan (if yes)
-2) Why not to replan (if no)
+**STEP 1: DYNAMIC HEURISTIC GENERATION**
+Analyze the "Current Mission". As an expert, generate 3 specific "Rules of Thumb" (Heuristics) that humans instinctively use for this specific type of task.
+*Think about: Trade-offs between Price vs. Effort, Time vs. Quality, Sunk Cost Fallacy vs. Opportunity.*
 
-Return JSON:
+**STEP 2: COMPARATIVE ANALYSIS**
+Compare the [Original Plan] against the opportunity presented in [New Real-Time Observation] using the heuristics you just generated.
+Ask yourself: Does the new observation offer a higher "Satisfaction Score" than continuing with the original plan?
+
+**STEP 3: DECISION**
+Determine if a "Replan" is strictly necessary.
+* Output "REPLAN" only if the new observation significantly beats the original plan based on your heuristics.
+* Output "CONTINUE" if the original plan is still superior or if the difference is negligible.
+
+### OUTPUT FORMAT (Strict JSON):
 {
-  "replan_needed": true/false,
-  "reasoning": "...",
-  "economic_analysis": "...",
-  "distance_assessment": "...",
-  "recommendation_strength": "Strong/Moderate/Weak"
+  "generated_heuristics": ["Rule 1...", "Rule 2...", "Rule 3..."],
+  "decision": "REPLAN" or "CONTINUE",
+  "reasoning": "Explain why, referencing the specific heuristics and the new observation."
 }
 ```
+
+**Example: How the robot fills and sends this prompt (simulation)**
+
+This is how it will look when your robot sends the prompt to the model (the bold text is what the robot inserted):
+
+```
+INPUT DATA:
+
+Current Mission: Buy fresh milk and bring it home.
+
+User Context & Location: I am located in Zichron Yaakov, 5 minutes drive from the original destination.
+
+Original Plan: Drive to "Rami Levy" supermarket (cheap, but large and crowded).
+
+NEW REAL-TIME OBSERVATION: I just detected a small convenience store by the roadside with a sign: "Milk sale - 20% discount - quick entry".
+```
+
+**Expected Model Response:**
+
+Because in STEP 1 we forced it to generate heuristics, its answer will be very intelligent:
+
+```json
+{
+  "generated_heuristics": [
+    "Efficiency Rule: For a single low-cost item (milk), time saved is more valuable than a small price difference.",
+    "Friction Avoidance: Humans prefer avoiding large parking lots and queues (Big Supermarkets) when possible.",
+    "Opportunity Logic: If a discount exists directly on the path, take it immediately rather than traveling further."
+  ],
+  "decision": "REPLAN",
+  "reasoning": "Based on the 'Efficiency Rule' and 'Friction Avoidance', the new observation (Small shop, 20% discount, immediate access) is superior. Continuing to Rami Levy involves 5 more minutes of driving + parking + checkout time, which is irrational for a single item that is now available cheaper and closer."
+}
+```
+
+**Why This Works:**
+
+The important part here is STEP 1. The model doesn't just compare prices. It first "invents" the rules of the game (for example: "humans hate large supermarket parking lots for milk") and only then checks the observation against these rules.
 
 ## Reproducibility
 ```bash
